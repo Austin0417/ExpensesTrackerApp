@@ -33,7 +33,6 @@ public class CalendarDialogFragment extends DialogFragment {
     private String mParam2;
     private EditText additionalExpenses;
     private EditText additionalIncome;
-    private DialogToCalendarDataPass dataPasser;
     private View alertView;
 
     public CalendarDialogFragment() {
@@ -55,11 +54,12 @@ public class CalendarDialogFragment extends DialogFragment {
                 Log.i("Additional info", additionalExpenses.getText().toString() + " " + additionalIncome.getText().toString());
                 if (!additionalExpenses.getText().toString().isEmpty() && !additionalIncome.getText().toString().isEmpty()) {
                     Log.i("Additional Expenses/Income", "Success");
-                    dataPasser.onDialogDataPassed(Double.parseDouble(additionalExpenses.getText().toString()), Double.parseDouble(additionalIncome.getText().toString()));
                     double arr[] = {Double.parseDouble(additionalExpenses.getText().toString()), Double.parseDouble(additionalIncome.getText().toString())};
                     Bundle result = new Bundle();
                     result.putDoubleArray("calendarevent", arr);
                     getParentFragmentManager().setFragmentResult("calendarevent", result);
+                    CalendarFragment parentFragment = ((CalendarFragment) CalendarDialogFragment.this.getParentFragment());
+
                 }
             }
         }).setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
@@ -98,9 +98,7 @@ public class CalendarDialogFragment extends DialogFragment {
         super.onAttach(context);
     }
 
-    public void setDataPasser(DialogToCalendarDataPass passer) {
-        this.dataPasser = passer;
-    }
+
 
 //    @Override
 //    public View onCreateView(LayoutInflater inflater, ViewGroup container,

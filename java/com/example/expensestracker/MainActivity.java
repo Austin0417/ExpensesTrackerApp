@@ -4,6 +4,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
 
+import android.app.Activity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -15,7 +16,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
 
-public class MainActivity extends AppCompatActivity implements FragmentManager.OnBackStackChangedListener, PassMonthlyData, CalendarDataPass, DialogToCalendarDataPass {
+public class MainActivity extends AppCompatActivity implements FragmentManager.OnBackStackChangedListener, PassMonthlyData, CalendarDataPass {
     FrameLayout addMonthlyInfoFragment;
     private Button loginBtn;
     private Button addBtn;
@@ -27,7 +28,8 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     private double expenses = 0;
     private double budget = 0;
     private MonthlyInfoFragment monthlyInfo = new MonthlyInfoFragment();
-    HashMap<Integer, ArrayList<CalendarEvent>> monthlyMapping;
+    private HashMap<Integer, ArrayList<CalendarEvent>> monthlyMapping;
+    private HashMap<Integer, HashMap<Integer, ArrayList<CalendarEvent>>> yearlyMapping;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -49,7 +51,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         addBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                hideActivityUI();
+                hideMainUI();
                 FragmentTransaction transaction = manager.beginTransaction();
                 transaction.replace(R.id.calendarFragment, new CalendarFragment());
                 transaction.addToBackStack("Calendar");
@@ -59,7 +61,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         initializeBtn.setOnClickListener( new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                hideActivityUI();
+                hideMainUI();
                 FragmentTransaction transaction = manager.beginTransaction();
                 transaction.replace(addMonthlyInfoFragment.getId(), monthlyInfo);
                 transaction.addToBackStack("Monthly Information");
@@ -86,8 +88,11 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
             int currentMonth = calendar.get(Calendar.MONTH) + 1;
             ArrayList<CalendarEvent> currentMonthEvents = monthlyMapping.get(currentMonth);
             for (CalendarEvent event : currentMonthEvents) {
-                expenses += event.getExpenses();
-                income += event.getIncome();
+                if (!event.isMarked()) {
+                    expenses += event.getExpenses();
+                    income += event.getIncome();
+                    event.setMarked(true);
+                }
             }
             budget = Math.round((income - expenses) * 100.0) / 100.0;
             overview.setText(generateUpdatedText(expenses, income, budget));
@@ -96,17 +101,15 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
             Log.i("Failure", "Could not process mapping data");
         }
     }
-    @Override
-    public void onDialogDataPassed(double additionalExpenses, double additionalIncome) {
-    }
-    public void hideActivityUI() {
+
+    public void hideMainUI() {
         overview.setVisibility(View.INVISIBLE);
         loginBtn.setVisibility(View.INVISIBLE);
         addBtn.setVisibility(View.INVISIBLE);
         initializeBtn.setVisibility(View.INVISIBLE);
         dashboardLabel.setVisibility(View.INVISIBLE);
     }
-    public void unhideActivityUI() {
+    public void unhideMainUI() {
         overview.setVisibility(View.VISIBLE);
         loginBtn.setVisibility(View.VISIBLE);
         addBtn.setVisibility(View.VISIBLE);
@@ -119,5 +122,16 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     }
     public String generateUpdatedText(double expenses, double income, double budget) {
         return ("Expenses: " + expenses + "\nIncome: " + income + "\nTotal available budget: " + budget);
+    }
+    public void resetInfo() {
+        if (monthlyMapping != null && !monthlyMapping.isEmpty()) {
+            monthlyMapping.clear();
+        }
+        income = 0;
+        expenses = 0;
+        budget = 0;
+        Log.i("Main Info", "Expenses: " + expenses + "\nIncome: " + income + "\nBudget: " + budget);
+
+        overview.setText(generateUpdatedText(expenses, income, budget));
     }
 }

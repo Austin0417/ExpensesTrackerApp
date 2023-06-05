@@ -3,8 +3,10 @@ package com.example.expensestracker;
 import android.content.Context;
 import android.os.Bundle;
 
+import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentResultListener;
 
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -31,10 +33,12 @@ public class MonthlyInfoFragment extends Fragment {
     private String mParam2;
 
     private Button backBtn;
+    private Button resetBtn;
     private TextView expenses;
     private TextView income;
 
     public PassMonthlyData monthlyData;
+    public MainActivity mainActivity;
 
 
     public MonthlyInfoFragment() {
@@ -67,6 +71,16 @@ public class MonthlyInfoFragment extends Fragment {
             mParam1 = getArguments().getString(ARG_PARAM1);
             mParam2 = getArguments().getString(ARG_PARAM2);
         }
+        getParentFragmentManager().setFragmentResultListener("reset", this, new FragmentResultListener() {
+            @Override
+            public void onFragmentResult(@NonNull String requestKey, @NonNull Bundle result) {
+                int fragmentResult = result.getInt("reset");
+                if (fragmentResult == 1) {
+                    mainActivity.resetInfo();
+                    Log.i("Reset", "Reset success!");
+                }
+            }
+        });
     }
 
     @Override
@@ -75,6 +89,7 @@ public class MonthlyInfoFragment extends Fragment {
         // Inflate the layout for this fragment
         View view = inflater.inflate(R.layout.fragment_monthly_info, container, false);
         backBtn = view.findViewById(R.id.backBtn);
+        resetBtn = view.findViewById(R.id.resetBtn);
         expenses = view.findViewById(R.id.monthlyExpenses);
         income = view.findViewById(R.id.monthlyIncome);
         backBtn.setOnClickListener(new View.OnClickListener() {
@@ -86,7 +101,14 @@ public class MonthlyInfoFragment extends Fragment {
                     Log.i("Data pass", "Expenses: " + expenses.getText().toString() + "\nIncome: " + income.getText().toString());
                 }
                 manager.popBackStack();
-                ((MainActivity) getActivity()).unhideActivityUI();
+                ((MainActivity) getActivity()).unhideMainUI();
+            }
+        });
+        resetBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                ResetConfirmationDialog resetDialog = new ResetConfirmationDialog();
+                resetDialog.show(getParentFragmentManager(), "Reset confirmation");
             }
         });
         return view;
@@ -95,5 +117,11 @@ public class MonthlyInfoFragment extends Fragment {
     public void onAttach(Context context) {
         super.onAttach(context);
         monthlyData = (PassMonthlyData) context;
+        if (getActivity() instanceof MainActivity) {
+            mainActivity = (MainActivity) getActivity();
+            Log.i("Success", "Parent activity reference successfully initialized");
+        } else {
+            Log.i("Monthly Info Fragment", "Couldn't obtain reference to parent activity!");
+        }
     }
 }
