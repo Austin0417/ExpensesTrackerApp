@@ -1,5 +1,6 @@
 package com.example.expensestracker;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.os.Bundle;
@@ -17,10 +18,13 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.CalendarView;
 
+import java.lang.reflect.Array;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Map;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -41,8 +45,7 @@ public class CalendarFragment extends Fragment{
     private CalendarView calendar;
     private CalendarDataPass dataPasser;
     private int currentMonth, currentYear, currentDay;
-    private HashMap<Integer, ArrayList<CalendarEvent>> monthlyExpensesMapping = new HashMap<Integer, ArrayList<CalendarEvent>>();
-
+    private HashMap<Integer, HashMap<LocalDate, ArrayList<CalendarEvent>>> monthlyExpensesMapping = new HashMap<Integer, HashMap<LocalDate, ArrayList<CalendarEvent>>>();
 
     private RecyclerView list;
     private CustomAdapter mAdapter;
@@ -88,19 +91,56 @@ public class CalendarFragment extends Fragment{
 
         getParentFragmentManager().setFragmentResultListener("calendarevent", this, new FragmentResultListener() {
             @Override
+            @SuppressLint("NewApi")
             public void onFragmentResult(@NonNull String requestKey, @NonNull Bundle result) {
                 double data[] = result.getDoubleArray("calendarevent");
                 if (data != null) {
-                    Log.i("Dialog data", "Expenses: " + data[0] + " Income: " + data[1]);
                     Calendar calendar = Calendar.getInstance();
                     calendar.set(currentYear, currentMonth, currentDay);
-                    Date date = calendar.getTime();
-                    if (monthlyExpensesMapping.containsKey(currentMonth)) {
-                        monthlyExpensesMapping.get(currentMonth).add(new CalendarEvent(data[0], data[1], date));
-                    } else {
-                        ArrayList<CalendarEvent> events = new ArrayList<CalendarEvent>();
-                        monthlyExpensesMapping.put(currentMonth, events);
-                        monthlyExpensesMapping.get(currentMonth).add(new CalendarEvent(data[0], data[1], date));
+                    LocalDate date = LocalDate.of(currentYear, currentMonth, currentDay);
+                    // Expenses Event
+                    if (data[1] == 0) {
+                        Log.i("Dialog Data", "Type: Expense. Amount: " + data[0]);
+                        // There are already some events in the current month
+                        if (monthlyExpensesMapping.containsKey(currentMonth)) {
+                            HashMap<LocalDate, ArrayList<CalendarEvent>> dayMapping = monthlyExpensesMapping.get(currentMonth);
+                            // There are already some events associated with this particular day
+                            if (dayMapping.containsKey(date)) {
+                                monthlyExpensesMapping.get(currentMonth).get(date).add(new ExpensesEvent(data[0], data[1], date));
+                            // First event associated with this particular day, so we have to initialize the array in the nested hashmap
+                            } else {
+                                ArrayList<CalendarEvent> events = new ArrayList<CalendarEvent>();
+                                events.add(new ExpensesEvent(data[0], data[1], date));
+                                dayMapping.put(date, events);
+                                monthlyExpensesMapping.put(currentMonth, dayMapping);
+                            }
+                        // No events in the current month yet, initialize the hashmaps and array
+                        } else {
+                            HashMap<LocalDate, ArrayList<CalendarEvent>> eventsOnDay = new HashMap<LocalDate, ArrayList<CalendarEvent>>();
+                            ArrayList<CalendarEvent> events = new ArrayList<CalendarEvent>();
+                            events.add(new ExpensesEvent(data[0], data[1], date));
+                            eventsOnDay.put(date, events);
+                            monthlyExpensesMapping.put(currentMonth, eventsOnDay);
+                        }
+                    // Income Event
+                    } else if (data[0] == 0) {
+                        if (monthlyExpensesMapping.containsKey(currentMonth)) {
+                            HashMap<LocalDate, ArrayList<CalendarEvent>> dayMapping = monthlyExpensesMapping.get(currentMonth);
+                            if (dayMapping.containsKey(date)) {
+                                monthlyExpensesMapping.get(currentMonth).get(date).add(new IncomeEvent(data[0], data[1], date));
+                            } else {
+                                ArrayList<CalendarEvent> events = new ArrayList<CalendarEvent>();
+                                events.add(new IncomeEvent(data[0], data[1], date));
+                                dayMapping.put(date, events);
+                                monthlyExpensesMapping.put(currentMonth, dayMapping);
+                            }
+                        } else {
+                            HashMap<LocalDate, ArrayList<CalendarEvent>> eventsOnDay = new HashMap<LocalDate, ArrayList<CalendarEvent>>();
+                            ArrayList<CalendarEvent> events = new ArrayList<CalendarEvent>();
+                            events.add(new IncomeEvent(data[0], data[1], date));
+                            eventsOnDay.put(date, events);
+                            monthlyExpensesMapping.put(currentMonth, eventsOnDay);
+                        }
                     }
                 }
                 initializeData();
@@ -121,10 +161,7 @@ public class CalendarFragment extends Fragment{
         calendar = v.findViewById(R.id.calendarView);
         list = v.findViewById(R.id.recyclerView);
         initializeData();
-//        mLayoutManager = new LinearLayoutManager(getActivity());
-//        mAdapter = new CustomAdapter(mDataset);
-//        list.setLayoutManager(mLayoutManager);
-//        list.setAdapter(mAdapter);
+
 
         exitBtn.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -154,12 +191,58 @@ public class CalendarFragment extends Fragment{
         super.onAttach(context);
         dataPasser = (CalendarDataPass) context;
     }
+
+    static ArrayList<Double> calculateTotalBudget(ArrayList<CalendarEvent> events) {
+        // Element 0: Net Additional Budget
+        // Element 1: Net Expenses
+        // Element 2: Net Income
+        // Element 3: Number of ExpenseEvents
+        // Element 4: Number of IncomeEvents
+        ArrayList<Double> res = new ArrayList<Double>();
+        double netExpenses = 0;
+        double netIncome = 0;
+        int expensesEvents = 0;
+        int incomeEvents = 0;
+        for (int i = 0; i < events.size(); i++) {
+                if (events.get(i) instanceof ExpensesEvent) {
+                    netExpenses += events.get(i).getExpenses();
+                    expensesEvents++;
+                } else {
+                    netIncome += events.get(i).getIncome();
+                    incomeEvents++;
+                }
+        }
+        res.add(Math.round((netIncome - netExpenses) * 100.0) / 100.0);
+        res.add(netExpenses);
+        res.add(netIncome);
+        res.add((double)expensesEvents);
+        res.add((double)incomeEvents);
+        return res;
+    }
+    static int getTotalEventsInMonth(HashMap<LocalDate, ArrayList<CalendarEvent>> events) {
+        int size = 0;
+        for (Map.Entry<LocalDate, ArrayList<CalendarEvent>> entry: events.entrySet()) {
+            size += entry.getValue().size();
+        }
+        return size;
+    }
+
+    @SuppressLint("NewApi")
     public void initializeData() {
         if (monthlyExpensesMapping != null && !monthlyExpensesMapping.isEmpty() && monthlyExpensesMapping.containsKey(currentMonth)) {
-            ArrayList<CalendarEvent> eventsInMonth = monthlyExpensesMapping.get(currentMonth);
-            mDataset = new String[eventsInMonth.size()];
-            for (int i = 0; i < eventsInMonth.size(); i++) {
-                mDataset[i] = eventsInMonth.get(i).getMonth() + "/" + eventsInMonth.get(i).getDay() + "/" + eventsInMonth.get(i).getYear() + "  - Net additional budget: " + Math.round((eventsInMonth.get(i).getIncome() - eventsInMonth.get(i).getExpenses()) * 100.0) / 100.0;
+            HashMap<LocalDate, ArrayList<CalendarEvent>> events = monthlyExpensesMapping.get(currentMonth);
+            int datasetSize = getTotalEventsInMonth(events);
+            mDataset = new String[datasetSize];
+            int datasetCounter = 0;
+            for (Map.Entry<LocalDate, ArrayList<CalendarEvent>> entry: events.entrySet()) {
+                ArrayList<CalendarEvent> eventsOnDay = entry.getValue();
+                LocalDate date = LocalDate.of(currentYear, currentMonth, currentDay);
+                ArrayList<Double> dayInfo = calculateTotalBudget(eventsOnDay);
+                double totalBudget = dayInfo.get(0);
+                int numberOfExpenses = dayInfo.get(3).intValue();
+                int numberOfIncome = dayInfo.get(4).intValue();
+                mDataset[datasetCounter] = eventsOnDay.get(0).getMonth() + "/" + eventsOnDay.get(0).getDay() + "/" + eventsOnDay.get(0).getYear() + ": " + eventsOnDay.size() + " events (" + numberOfExpenses + " expenses, " + numberOfIncome + " income)"  + " Budget: " + totalBudget;
+                datasetCounter++;
             }
             mLayoutManager = new LinearLayoutManager(getActivity());
             mAdapter = new CustomAdapter(mDataset);
@@ -167,11 +250,4 @@ public class CalendarFragment extends Fragment{
             list.setAdapter(mAdapter);
         }
     }
-//    public void updateDataset(@NonNull ArrayList<CalendarEvent> events) {
-//        mDataset = new String[events.size()];
-//        for (int i = 0; i < events.size(); i++) {
-//            mDataset[i] = events.get(i).getMonth() + "/" + events.get(i).getDay() + "/" + events.get(i).getYear() + "  - Net additional budget: " + Math.round((events.get(i).getIncome() - events.get(i).getExpenses()) * 100.0) / 100.0;
-//        }
-//
-//    }
 }

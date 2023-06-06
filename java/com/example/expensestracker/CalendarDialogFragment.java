@@ -13,7 +13,10 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.EditText;
+import android.widget.Spinner;
 import android.widget.TextView;
 
 /**
@@ -34,6 +37,7 @@ public class CalendarDialogFragment extends DialogFragment {
     private EditText additionalExpenses;
     private EditText additionalIncome;
     private View alertView;
+    private String type;
 
     public CalendarDialogFragment() {
         // Required empty public constructor
@@ -47,20 +51,43 @@ public class CalendarDialogFragment extends DialogFragment {
         View dialogView = inflater.inflate(R.layout.fragment_calendar_dialog, null, false);
         additionalIncome = dialogView.findViewById(R.id.incomeInput);
         additionalExpenses = dialogView.findViewById(R.id.expensesInput);
+        additionalIncome.setVisibility(View.INVISIBLE);
+        additionalExpenses.setVisibility(View.INVISIBLE);
+
+        String[] choices = {"Additional Expenses", "Additional Income"};
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_dropdown_item);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        int checkedItem = -1;
 
         builder.setView(dialogView).setPositiveButton("Save", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialogInterface, int i) {
                 Log.i("Additional info", additionalExpenses.getText().toString() + " " + additionalIncome.getText().toString());
-                if (!additionalExpenses.getText().toString().isEmpty() && !additionalIncome.getText().toString().isEmpty()) {
-                    Log.i("Additional Expenses/Income", "Success");
-                    double arr[] = {Double.parseDouble(additionalExpenses.getText().toString()), Double.parseDouble(additionalIncome.getText().toString())};
-                    Bundle result = new Bundle();
-                    result.putDoubleArray("calendarevent", arr);
-                    getParentFragmentManager().setFragmentResult("calendarevent", result);
-                    CalendarFragment parentFragment = ((CalendarFragment) CalendarDialogFragment.this.getParentFragment());
+                if (type == "expenses") {
+                    if (!additionalExpenses.getText().toString().isEmpty()) {
+                        double arr[] = {Double.parseDouble(additionalExpenses.getText().toString()), 0};
+                        Bundle result = new Bundle();
+                        result.putDoubleArray("calendarevent", arr);
+                        getParentFragmentManager().setFragmentResult("calendarevent", result);
 
+                    }
+                } else if (type == "income") {
+                    if (!additionalIncome.getText().toString().isEmpty()) {
+                        double arr[] = {0, Double.parseDouble(additionalIncome.getText().toString())};
+                        Bundle result = new Bundle();
+                        result.putDoubleArray("calendarevent", arr);
+                        getParentFragmentManager().setFragmentResult("calendarevent", result);
+                    }
                 }
+//                if (!additionalExpenses.getText().toString().isEmpty() && !additionalIncome.getText().toString().isEmpty()) {
+//                    Log.i("Additional Expenses/Income", "Success");
+//                    double arr[] = {Double.parseDouble(additionalExpenses.getText().toString()), Double.parseDouble(additionalIncome.getText().toString())};
+//                    Bundle result = new Bundle();
+//                    result.putDoubleArray("calendarevent", arr);
+//                    getParentFragmentManager().setFragmentResult("calendarevent", result);
+//                    CalendarFragment parentFragment = ((CalendarFragment) CalendarDialogFragment.this.getParentFragment());
+//
+//                }
             }
         }).setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
             @Override
@@ -68,6 +95,19 @@ public class CalendarDialogFragment extends DialogFragment {
                 dismiss();
                 //CalendarDialogFragment.this.getDialog().cancel();
 
+            }
+        }).setSingleChoiceItems(choices, checkedItem, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                if (which == 0) {
+                    additionalExpenses.setVisibility(View.VISIBLE);
+                    additionalIncome.setVisibility(View.INVISIBLE);
+                    type = "expenses";
+                } else {
+                    additionalIncome.setVisibility(View.VISIBLE);
+                    additionalExpenses.setVisibility(View.INVISIBLE);
+                    type = "income";
+                }
             }
         });
                 return builder.create();

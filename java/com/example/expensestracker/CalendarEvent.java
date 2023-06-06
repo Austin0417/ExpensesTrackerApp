@@ -1,5 +1,7 @@
 package com.example.expensestracker;
 
+import android.annotation.SuppressLint;
+
 import java.time.LocalDate;
 import java.util.Calendar;
 import java.util.Date;
@@ -8,16 +10,13 @@ public class CalendarEvent {
     private String information;
     private double expenses;
     private double income;
-    Calendar calendar;
-    private Date date;
+    private LocalDate date;
     boolean isMarked = false;
 
-    public CalendarEvent(double expenses, double income, Date date) {
+    public CalendarEvent(double expenses, double income, LocalDate date) {
         this.expenses = expenses;
         this.income = income;
         this.date = date;
-        calendar = Calendar.getInstance();
-        calendar.setTime(this.date);
     }
 
     public String getInformation() {
@@ -40,17 +39,26 @@ public class CalendarEvent {
         this.income = income;
     }
 
+    @SuppressLint("NewAPI")
     public int getMonth() {
-        return calendar.get(Calendar.MONTH);
+        return date.getMonthValue();
     }
 
+    @SuppressLint("NewAPI")
     public int getDay() {
-        return calendar.get(Calendar.DAY_OF_MONTH);
+        return date.getDayOfMonth();
     }
 
+    @SuppressLint("NewAPI")
     public int getYear() {
-        return calendar.get(Calendar.YEAR);
+        return date.getYear();
     }
     public void setMarked(boolean status) { isMarked = status; }
     public boolean isMarked() { return isMarked; }
+    public String getType() {
+        return "calendarevent";
+    }
 }
+
+
+

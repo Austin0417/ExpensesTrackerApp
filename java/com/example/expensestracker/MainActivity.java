@@ -12,9 +12,12 @@ import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.Map;
 
 public class MainActivity extends AppCompatActivity implements FragmentManager.OnBackStackChangedListener, PassMonthlyData, CalendarDataPass {
     FrameLayout addMonthlyInfoFragment;
@@ -27,9 +30,11 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     private double income = 0;
     private double expenses = 0;
     private double budget = 0;
+    private double additionalExpensesFromCalendar = 0;
+    private double additionalIncomeFromCalendar = 0;
     private MonthlyInfoFragment monthlyInfo = new MonthlyInfoFragment();
-    private HashMap<Integer, ArrayList<CalendarEvent>> monthlyMapping;
-    private HashMap<Integer, HashMap<Integer, ArrayList<CalendarEvent>>> yearlyMapping;
+    private HashMap<Integer, HashMap<LocalDate, ArrayList<CalendarEvent>>> monthlyMapping;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -75,26 +80,40 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     }
     @Override
     public void onDataPassed(double expenses, double income) {
-        this.income = income;
-        this.expenses = expenses;
-        this.budget = Math.round((income - expenses) * 100.0) / 100.0;
+        this.income = income + additionalIncomeFromCalendar;
+        this.expenses  = expenses + additionalExpensesFromCalendar;
+        double additionalBudgetFromCalendar = Math.round((additionalIncomeFromCalendar - additionalExpensesFromCalendar) * 100.0) / 100.0;
+        this.budget = (Math.round((income - expenses) * 100.0) / 100.0) + additionalBudgetFromCalendar;
         overview.setText("Expenses: " + this.expenses + "\nIncome: " + this.income + "\nTotal available budget: " + budget);
     }
     @Override
-    public void onCalendarDataPassed(HashMap<Integer, ArrayList<CalendarEvent>> mapping) {
+    public void onCalendarDataPassed(HashMap<Integer, HashMap<LocalDate, ArrayList<CalendarEvent>>> mapping) {
         monthlyMapping = mapping;
         if (monthlyMapping != null && !monthlyMapping.isEmpty()) {
+            double totalAdditionalMonthlyExpenses = 0;
+            double totalAdditionalMonthlyIncome = 0;
             Calendar calendar = Calendar.getInstance();
             int currentMonth = calendar.get(Calendar.MONTH) + 1;
-            ArrayList<CalendarEvent> currentMonthEvents = monthlyMapping.get(currentMonth);
-            for (CalendarEvent event : currentMonthEvents) {
-                if (!event.isMarked()) {
-                    expenses += event.getExpenses();
-                    income += event.getIncome();
-                    event.setMarked(true);
+            HashMap<LocalDate, ArrayList<CalendarEvent>> currentMonthEvents = monthlyMapping.get(currentMonth);
+            for (Map.Entry<LocalDate, ArrayList<CalendarEvent>> entry: currentMonthEvents.entrySet()) {
+                ArrayList<CalendarEvent> events = entry.getValue();
+                ArrayList<Double> dayExpensesAndIncome = CalendarFragment.calculateTotalBudget(events);
+                for (int i = 0; i < events.size(); i++) {
+                    if (!events.get(i).isMarked()) {
+                        if (events.get(i) instanceof ExpensesEvent) {
+                            totalAdditionalMonthlyExpenses += events.get(i).getExpenses();
+                        } else {
+                            totalAdditionalMonthlyIncome += events.get(i).getIncome();
+                        }
+                        events.get(i).setMarked(true);
+                    }
                 }
             }
-            budget = Math.round((income - expenses) * 100.0) / 100.0;
+            budget += Math.round((totalAdditionalMonthlyIncome - totalAdditionalMonthlyExpenses) * 100.0) / 100.0;
+            expenses += totalAdditionalMonthlyExpenses;
+            income += totalAdditionalMonthlyIncome;
+            additionalExpensesFromCalendar = totalAdditionalMonthlyExpenses;
+            additionalIncomeFromCalendar = totalAdditionalMonthlyIncome;
             overview.setText(generateUpdatedText(expenses, income, budget));
 
         } else {
@@ -117,7 +136,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         dashboardLabel.setVisibility(View.VISIBLE);
     }
 
-    public HashMap<Integer, ArrayList<CalendarEvent>> getMonthlyMapping() {
+    public HashMap<Integer, HashMap<LocalDate, ArrayList<CalendarEvent>>> getMonthlyMapping() {
         return monthlyMapping;
     }
     public String generateUpdatedText(double expenses, double income, double budget) {
