@@ -36,7 +36,10 @@ public class CalendarDialogFragment extends DialogFragment {
     private String mParam2;
     private EditText additionalExpenses;
     private EditText additionalIncome;
+    private EditText deadlineText;
+    private EditText deadlineDescription;
     private View alertView;
+
     private String type;
 
     public CalendarDialogFragment() {
@@ -51,10 +54,15 @@ public class CalendarDialogFragment extends DialogFragment {
         View dialogView = inflater.inflate(R.layout.fragment_calendar_dialog, null, false);
         additionalIncome = dialogView.findViewById(R.id.incomeInput);
         additionalExpenses = dialogView.findViewById(R.id.expensesInput);
-        additionalIncome.setVisibility(View.INVISIBLE);
-        additionalExpenses.setVisibility(View.INVISIBLE);
+        deadlineText = dialogView.findViewById(R.id.deadlineInput);
+        deadlineDescription = dialogView.findViewById(R.id.deadlineInfo);
 
-        String[] choices = {"Additional Expenses", "Additional Income"};
+        deadlineDescription.setVisibility(View.GONE);
+        additionalIncome.setVisibility(View.GONE);
+        additionalExpenses.setVisibility(View.GONE);
+        deadlineText.setVisibility(View.GONE);
+
+        String[] choices = {"Additional Expenses", "Additional Income", "Deadline"};
         ArrayAdapter<String> adapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_dropdown_item);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         int checkedItem = -1;
@@ -63,31 +71,32 @@ public class CalendarDialogFragment extends DialogFragment {
             @Override
             public void onClick(DialogInterface dialogInterface, int i) {
                 Log.i("Additional info", additionalExpenses.getText().toString() + " " + additionalIncome.getText().toString());
+                // Expenses option was chosen
                 if (type == "expenses") {
                     if (!additionalExpenses.getText().toString().isEmpty()) {
                         double arr[] = {Double.parseDouble(additionalExpenses.getText().toString()), 0};
                         Bundle result = new Bundle();
                         result.putDoubleArray("calendarevent", arr);
-                        getParentFragmentManager().setFragmentResult("calendarevent", result);
-
+                        getParentFragmentManager().setFragmentResult("fragment_data", result);
                     }
+                // Income option was chosen
                 } else if (type == "income") {
                     if (!additionalIncome.getText().toString().isEmpty()) {
                         double arr[] = {0, Double.parseDouble(additionalIncome.getText().toString())};
                         Bundle result = new Bundle();
                         result.putDoubleArray("calendarevent", arr);
-                        getParentFragmentManager().setFragmentResult("calendarevent", result);
+                        getParentFragmentManager().setFragmentResult("fragment_data", result);
+                    }
+                // Deadline option was chosen
+                } else {
+                    if (!deadlineText.getText().toString().isEmpty() && !deadlineDescription.getText().toString().isEmpty()) {
+                        double arr[] = {Double.parseDouble(deadlineText.getText().toString()), 0};
+                        Bundle result = new Bundle();
+                        result.putDoubleArray("calendarevent", arr);
+                        result.putString("deadline_description", deadlineDescription.getText().toString());
+                        getParentFragmentManager().setFragmentResult("fragment_data", result);
                     }
                 }
-//                if (!additionalExpenses.getText().toString().isEmpty() && !additionalIncome.getText().toString().isEmpty()) {
-//                    Log.i("Additional Expenses/Income", "Success");
-//                    double arr[] = {Double.parseDouble(additionalExpenses.getText().toString()), Double.parseDouble(additionalIncome.getText().toString())};
-//                    Bundle result = new Bundle();
-//                    result.putDoubleArray("calendarevent", arr);
-//                    getParentFragmentManager().setFragmentResult("calendarevent", result);
-//                    CalendarFragment parentFragment = ((CalendarFragment) CalendarDialogFragment.this.getParentFragment());
-//
-//                }
             }
         }).setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
             @Override
@@ -101,12 +110,22 @@ public class CalendarDialogFragment extends DialogFragment {
             public void onClick(DialogInterface dialog, int which) {
                 if (which == 0) {
                     additionalExpenses.setVisibility(View.VISIBLE);
-                    additionalIncome.setVisibility(View.INVISIBLE);
+                    additionalIncome.setVisibility(View.GONE);
+                    deadlineText.setVisibility(View.GONE);
+                    deadlineDescription.setVisibility(View.GONE);
                     type = "expenses";
-                } else {
+                } else if (which == 1) {
                     additionalIncome.setVisibility(View.VISIBLE);
-                    additionalExpenses.setVisibility(View.INVISIBLE);
+                    additionalExpenses.setVisibility(View.GONE);
+                    deadlineText.setVisibility(View.GONE);
+                    deadlineDescription.setVisibility(View.GONE);
                     type = "income";
+                } else {
+                    deadlineText.setVisibility(View.VISIBLE);
+                    deadlineDescription.setVisibility(View.VISIBLE);
+                    additionalIncome.setVisibility(View.GONE);
+                    additionalExpenses.setVisibility(View.GONE);
+                    type = "deadline";
                 }
             }
         });
@@ -138,17 +157,5 @@ public class CalendarDialogFragment extends DialogFragment {
         super.onAttach(context);
     }
 
-
-
-//    @Override
-//    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-//                             Bundle savedInstanceState) {
-//        // Inflate the layout for this fragment
-//        View v = inflater.inflate(R.layout.fragment_calendar_dialog, container, false);
-//        alertView = v;
-//        additionalExpenses = v.findViewById(R.id.expensesInput);
-//        additionalIncome = v.findViewById(R.id.incomeInput);
-//        return v;
-//    }
 
 }

@@ -38,12 +38,23 @@
             android:layout_height="160dp"
             android:layout_marginTop="443dp"
             android:layout_marginBottom="48dp"
+            android:scrollbars="vertical"
             app:layout_constraintBottom_toTopOf="@+id/exitBtn"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintHorizontal_bias="0.0"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            android:scrollbars="vertical"/>
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <Button
+            android:id="@+id/deadlineBtn"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="16dp"
+            android:text="Deadlines"
+            app:layout_constraintBottom_toBottomOf="@+id/exitBtn"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@+id/exitBtn"
+            app:layout_constraintVertical_bias="0.0" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </FrameLayout>

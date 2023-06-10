@@ -2,7 +2,9 @@ package com.example.expensestracker;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
@@ -17,6 +19,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.CalendarView;
+import android.widget.TextView;
 
 import java.lang.reflect.Array;
 import java.time.LocalDate;
@@ -42,10 +45,12 @@ public class CalendarFragment extends Fragment{
     private String mParam1;
     private String mParam2;
     private Button exitBtn;
+    private Button deadlineBtn;
     private CalendarView calendar;
     private CalendarDataPass dataPasser;
     private int currentMonth, currentYear, currentDay;
     private HashMap<Integer, HashMap<LocalDate, ArrayList<CalendarEvent>>> monthlyExpensesMapping = new HashMap<Integer, HashMap<LocalDate, ArrayList<CalendarEvent>>>();
+    private ArrayList<DeadlineEvent> deadlines = new ArrayList<DeadlineEvent>();
 
     private RecyclerView list;
     private CustomAdapter mAdapter;
@@ -88,18 +93,24 @@ public class CalendarFragment extends Fragment{
         if (parentActivity.getMonthlyMapping() != null && !parentActivity.getMonthlyMapping().isEmpty()) {
             monthlyExpensesMapping = parentActivity.getMonthlyMapping();
         }
+        if (parentActivity.getDeadlines() != null && !parentActivity.getDeadlines().isEmpty()) {
+            deadlines = parentActivity.getDeadlines();
+        }
 
-        getParentFragmentManager().setFragmentResultListener("calendarevent", this, new FragmentResultListener() {
+        getParentFragmentManager().setFragmentResultListener("fragment_data", this, new FragmentResultListener() {
             @Override
             @SuppressLint("NewApi")
             public void onFragmentResult(@NonNull String requestKey, @NonNull Bundle result) {
                 double data[] = result.getDoubleArray("calendarevent");
+                String deadlineDescription = result.getString("deadline_description");
                 if (data != null) {
-                    Calendar calendar = Calendar.getInstance();
-                    calendar.set(currentYear, currentMonth, currentDay);
                     LocalDate date = LocalDate.of(currentYear, currentMonth, currentDay);
+                    if (deadlineDescription != null) {
+                        Log.i("Deadline Description", deadlineDescription);
+                        deadlines.add(new DeadlineEvent(data[0], data[1], date, deadlineDescription));
+                    }
                     // Expenses Event
-                    if (data[1] == 0) {
+                    else if (data[1] == 0) {
                         Log.i("Dialog Data", "Type: Expense. Amount: " + data[0]);
                         // There are already some events in the current month
                         if (monthlyExpensesMapping.containsKey(currentMonth)) {
@@ -158,6 +169,7 @@ public class CalendarFragment extends Fragment{
         // Inflate the layout for this fragment
         View v = inflater.inflate(R.layout.fragment_calendar, container, false);
         exitBtn = v.findViewById(R.id.exitBtn);
+        deadlineBtn = v.findViewById(R.id.deadlineBtn);
         calendar = v.findViewById(R.id.calendarView);
         list = v.findViewById(R.id.recyclerView);
         initializeData();
@@ -166,11 +178,31 @@ public class CalendarFragment extends Fragment{
         exitBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                ((MainActivity) getActivity()).unhideMainUI();
-                if (monthlyExpensesMapping != null && !monthlyExpensesMapping.isEmpty()) {
-                    dataPasser.onCalendarDataPassed(monthlyExpensesMapping);
-                }
                 getParentFragmentManager().popBackStack();
+                ((MainActivity) getActivity()).unhideMainUI();
+                ((MainActivity) getActivity()).updateTextColorStatus();
+                dataPasser.onCalendarDataPassed(monthlyExpensesMapping, deadlines);
+
+            }
+        });
+        deadlineBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
+                builder.setTitle("Deadline Information");
+                LayoutInflater inflater = LayoutInflater.from(getContext());
+                View dialogView = inflater.inflate(R.layout.deadline_info_layout, null);
+                builder.setView(dialogView);
+                TextView deadlineText = dialogView.findViewById(R.id.deadlineText);
+                deadlineText.setText(displayDeadlines(deadlines));
+                builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        dialog.dismiss();
+                    }
+                });
+                AlertDialog dialog = builder.create();
+                dialog.show();
             }
         });
         calendar.setOnDateChangeListener(new CalendarView.OnDateChangeListener() {
@@ -181,6 +213,7 @@ public class CalendarFragment extends Fragment{
                 currentYear = year;
                 currentDay = dayOfMonth;
                 CalendarDialogFragment dialog = new CalendarDialogFragment();
+
                 dialog.show(getParentFragmentManager(), "Add additional expenses/income");
             }
         });
@@ -192,7 +225,7 @@ public class CalendarFragment extends Fragment{
         dataPasser = (CalendarDataPass) context;
     }
 
-    static ArrayList<Double> calculateTotalBudget(ArrayList<CalendarEvent> events) {
+    public static ArrayList<Double> calculateTotalBudget(ArrayList<CalendarEvent> events) {
         // Element 0: Net Additional Budget
         // Element 1: Net Expenses
         // Element 2: Net Income
@@ -203,13 +236,16 @@ public class CalendarFragment extends Fragment{
         double netIncome = 0;
         int expensesEvents = 0;
         int incomeEvents = 0;
+        int deadlineEvents = 0;
         for (int i = 0; i < events.size(); i++) {
                 if (events.get(i) instanceof ExpensesEvent) {
                     netExpenses += events.get(i).getExpenses();
                     expensesEvents++;
-                } else {
+                } else if (events.get(i) instanceof IncomeEvent) {
                     netIncome += events.get(i).getIncome();
                     incomeEvents++;
+                } else {
+                    deadlineEvents++;
                 }
         }
         res.add(Math.round((netIncome - netExpenses) * 100.0) / 100.0);
@@ -217,14 +253,32 @@ public class CalendarFragment extends Fragment{
         res.add(netIncome);
         res.add((double)expensesEvents);
         res.add((double)incomeEvents);
+        res.add((double)deadlineEvents);
         return res;
     }
-    static int getTotalEventsInMonth(HashMap<LocalDate, ArrayList<CalendarEvent>> events) {
+    public static int getTotalEventsInMonth(HashMap<LocalDate, ArrayList<CalendarEvent>> events) {
         int size = 0;
         for (Map.Entry<LocalDate, ArrayList<CalendarEvent>> entry: events.entrySet()) {
             size += entry.getValue().size();
         }
         return size;
+    }
+    public static int getNumberOfDeadlines(ArrayList<CalendarEvent> events) {
+        int deadlineCount = 0;
+        for (int i = 0; i < events.size(); i++) {
+            if (events.get(i) instanceof DeadlineEvent && !events.get(i).isMarked()) {
+                deadlineCount++;
+                events.get(i).setMarked(true);
+            }
+        }
+        return deadlineCount;
+    }
+    public static String displayDeadlines(ArrayList<DeadlineEvent> deadlines) {
+        String res = "";
+        for (int i = 0; i < deadlines.size(); i++) {
+            res += deadlines.get(i).getMonth() + "/" + deadlines.get(i).getDay() + "/" + deadlines.get(i).getYear() + ": $" + deadlines.get(i).getExpenses() + " - " + deadlines.get(i).getInformation() + "\n";
+        }
+        return res;
     }
 
     @SuppressLint("NewApi")
@@ -241,7 +295,7 @@ public class CalendarFragment extends Fragment{
                 double totalBudget = dayInfo.get(0);
                 int numberOfExpenses = dayInfo.get(3).intValue();
                 int numberOfIncome = dayInfo.get(4).intValue();
-                mDataset[datasetCounter] = eventsOnDay.get(0).getMonth() + "/" + eventsOnDay.get(0).getDay() + "/" + eventsOnDay.get(0).getYear() + ": " + eventsOnDay.size() + " events (" + numberOfExpenses + " expenses, " + numberOfIncome + " income)"  + " Budget: " + totalBudget;
+                mDataset[datasetCounter] = eventsOnDay.get(0).getMonth() + "/" + eventsOnDay.get(0).getDay() + "/" + eventsOnDay.get(0).getYear() + ": " + eventsOnDay.size() + " events (" + numberOfExpenses + " expenses, " + numberOfIncome + " income)"  + " Budget: $" + totalBudget;
                 datasetCounter++;
             }
             mLayoutManager = new LinearLayoutManager(getActivity());
@@ -250,4 +304,5 @@ public class CalendarFragment extends Fragment{
             list.setAdapter(mAdapter);
         }
     }
+
 }

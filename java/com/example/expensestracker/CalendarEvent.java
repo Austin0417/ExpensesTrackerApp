@@ -58,6 +58,9 @@ public class CalendarEvent {
     public String getType() {
         return "calendarevent";
     }
+    public void setInformation(String information) {
+        this.information = information;
+    }
 }
 
 

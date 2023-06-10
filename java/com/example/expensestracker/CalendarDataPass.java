@@ -6,5 +6,5 @@ import java.util.Date;
 import java.util.HashMap;
 
 public interface CalendarDataPass {
-    public void onCalendarDataPassed(HashMap<Integer, HashMap<LocalDate, ArrayList<CalendarEvent>>> events);
+    public void onCalendarDataPassed(HashMap<Integer, HashMap<LocalDate, ArrayList<CalendarEvent>>> events, ArrayList<DeadlineEvent> deadlines);
 }

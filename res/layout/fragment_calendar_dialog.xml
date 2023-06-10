@@ -1,31 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:baselineAligned="false"
+    android:orientation="vertical">
 
     <EditText
         android:id="@+id/expensesInput"
-        android:layout_width="0dp"
-        android:layout_height="65dp"
+        android:layout_width="173dp"
+        android:layout_height="61dp"
         android:hint="Additional expenses"
-        android:inputType="numberDecimal"
-        app:layout_constraintBottom_toTopOf="@+id/incomeInput"
-        app:layout_constraintEnd_toEndOf="@+id/incomeInput"
-        app:layout_constraintStart_toStartOf="@+id/incomeInput"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.5" />
+        android:inputType="numberDecimal" />
 
     <EditText
         android:id="@+id/incomeInput"
-        android:layout_width="175dp"
-        android:layout_height="63dp"
-        android:layout_marginStart="92dp"
+        android:layout_width="168dp"
+        android:layout_height="61dp"
         android:hint="Additional income"
+        android:inputType="numberDecimal" />
+
+    <EditText
+        android:id="@+id/deadlineInput"
+        android:layout_width="226dp"
+        android:layout_height="60dp"
         android:inputType="numberDecimal"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/expensesInput"
-        app:layout_constraintVertical_bias="0.5" />
-</androidx.constraintlayout.widget.ConstraintLayout>
+        android:hint="Deadline payment amount" />
+
+    <EditText
+        android:id="@+id/deadlineInfo"
+        android:layout_width="227dp"
+        android:layout_height="52dp"
+        android:inputType="textLongMessage|textMultiLine|text"
+        android:hint="Enter Deadline Information" />
+</LinearLayout>

@@ -76,6 +76,10 @@ public class MonthlyInfoFragment extends Fragment {
             public void onFragmentResult(@NonNull String requestKey, @NonNull Bundle result) {
                 int fragmentResult = result.getInt("reset");
                 if (fragmentResult == 1) {
+                    expenses.setText("");
+                    income.setText("");
+                    FragmentManager manager = getParentFragmentManager();
+                    manager.popBackStack();
                     mainActivity.resetInfo();
                     Log.i("Reset", "Reset success!");
                 }
@@ -109,6 +113,7 @@ public class MonthlyInfoFragment extends Fragment {
             public void onClick(View view) {
                 ResetConfirmationDialog resetDialog = new ResetConfirmationDialog();
                 resetDialog.show(getParentFragmentManager(), "Reset confirmation");
+
             }
         });
         return view;
