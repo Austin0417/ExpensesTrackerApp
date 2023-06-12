@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.os.AsyncTask;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
@@ -42,6 +43,7 @@ public class CalendarFragment extends Fragment{
     private static final String ARG_PARAM2 = "param2";
 
     // TODO: Rename and change types of parameters
+    ExpensesTrackerDatabase db;
     private String mParam1;
     private String mParam2;
     private Button exitBtn;
@@ -105,10 +107,27 @@ public class CalendarFragment extends Fragment{
                 String deadlineDescription = result.getString("deadline_description");
                 if (data != null) {
                     LocalDate date = LocalDate.of(currentYear, currentMonth, currentDay);
+
+                    // Deadline Event
                     if (deadlineDescription != null) {
                         Log.i("Deadline Description", deadlineDescription);
                         deadlines.add(new DeadlineEvent(data[0], data[1], date, deadlineDescription));
+                        AsyncTask.execute(new Runnable() {
+                            @Override
+                            public void run() {
+                                DeadlineEventsDAO deadlineDAO = db.deadlineEventsDAO();
+                                DeadlineEventsEntity entity = new DeadlineEventsEntity();
+                                entity.information = deadlineDescription;
+                                entity.expense = data[0];
+                                entity.day = date.getDayOfMonth();
+                                entity.month = date.getMonthValue();
+                                entity.year = date.getYear();
+                                deadlineDAO.insert(entity);
+                                Log.i("Database insertion", "Inserted deadline!");
+                            }
+                        });
                     }
+
                     // Expenses Event
                     else if (data[1] == 0) {
                         Log.i("Dialog Data", "Type: Expense. Amount: " + data[0]);
@@ -133,6 +152,22 @@ public class CalendarFragment extends Fragment{
                             eventsOnDay.put(date, events);
                             monthlyExpensesMapping.put(currentMonth, eventsOnDay);
                         }
+
+                        AsyncTask.execute(new Runnable() {
+                            @Override
+                            public void run() {
+                                CalendarEventsDAO dao = db.calendarEventsDAO();
+                                CalendarEventsEntity entity = new CalendarEventsEntity();
+                                entity.day = date.getDayOfMonth();
+                                entity.month = date.getMonthValue();
+                                entity.year = date.getYear();
+                                entity.expense = data[0];
+                                entity.income = data[1];
+                                dao.insert(entity);
+                                Log.i("Database insertion", "Expense event inserted!");
+                            }
+                        });
+
                     // Income Event
                     } else if (data[0] == 0) {
                         if (monthlyExpensesMapping.containsKey(currentMonth)) {
@@ -152,6 +187,22 @@ public class CalendarFragment extends Fragment{
                             eventsOnDay.put(date, events);
                             monthlyExpensesMapping.put(currentMonth, eventsOnDay);
                         }
+
+                        AsyncTask.execute(new Runnable() {
+                            @Override
+                            public void run() {
+                                CalendarEventsDAO dao = db.calendarEventsDAO();
+                                CalendarEventsEntity entity = new CalendarEventsEntity();
+                                entity.day = date.getDayOfMonth();
+                                entity.month = date.getMonthValue();
+                                entity.year = date.getYear();
+                                entity.expense = data[0];
+                                entity.income = data[1];
+                                dao.insert(entity);
+                                Log.i("Database insertion", "Income event inserted!");
+                            }
+                        });
+
                     }
                 }
                 initializeData();
@@ -225,6 +276,9 @@ public class CalendarFragment extends Fragment{
         dataPasser = (CalendarDataPass) context;
     }
 
+    public void setDatabase(ExpensesTrackerDatabase db) {
+        this.db = db;
+    }
     public static ArrayList<Double> calculateTotalBudget(ArrayList<CalendarEvent> events) {
         // Element 0: Net Additional Budget
         // Element 1: Net Expenses
