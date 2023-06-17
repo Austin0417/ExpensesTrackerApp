@@ -14,8 +14,12 @@ import androidx.room.Room;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.app.AlarmManager;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.AsyncTask;
@@ -30,6 +34,8 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.TextView;
+
+import com.google.firebase.FirebaseApp;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -70,7 +76,12 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     private ArrayList<DeadlineEvent> deadlines;
     boolean upToDate = true;
     private boolean notificationsEnabled = true;
-    ExpensesTrackerDatabase db;
+    private ExpensesTrackerDatabase db;
+    private AlarmManager alarmManager;
+    private AlarmReceiver alarmReceiver;
+    private Intent alarmIntent;
+    private PendingIntent pendingIntent;
+
 
 
     @Override
@@ -90,6 +101,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main2);
 
+
         // Initializing all UI elements and obtaining a reference to them
         addBtn = findViewById(R.id.addBtn);
         initializeBtn = findViewById(R.id.initializeBtn);
@@ -98,6 +110,11 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         addMonthlyInfoFragment = findViewById(R.id.monthlyInfoFragment);
         manager = getSupportFragmentManager();
         manager.addOnBackStackChangedListener(this);
+
+        alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+        alarmIntent = new Intent(this, AlarmReceiver.class);
+        alarmIntent.setAction("com.example.expensestracker.ACTION_TRIGGER_ALARM");
+        //pendingIntent = PendingIntent.getBroadcast(this, 0, alarmIntent, PendingIntent.FLAG_UPDATE_CURRENT);
 
 
         Log.i("Current Month", String.valueOf(Calendar.getInstance().get(Calendar.MONTH) + 1));
@@ -130,6 +147,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, NOTIFICATION_STATUS_CODE);
             return;
         }
+        FirebaseApp.initializeApp(this);
         initializeDatabase();
     }
 
@@ -172,6 +190,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
             @Override
             public void onChanged(List<DeadlineEventsEntity> deadlineEventsEntities) {
                 if (deadlineEventsEntities != null && !deadlineEventsEntities.isEmpty()) {
+
                     Log.i("Deadlines", "Fetching deadlines...");
                     deadlines = new ArrayList<DeadlineEvent>();
                     for (int i = 0; i < deadlineEventsEntities.size(); i++) {
@@ -249,6 +268,21 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         });
     }
 
+    @SuppressLint("NewAPI")
+    public void setAlarmForDeadline(DeadlineEvent deadline) {
+
+        alarmIntent.putExtra("year", deadline.getYear());
+        alarmIntent.putExtra("month", deadline.getMonth());
+        alarmIntent.putExtra("day", deadline.getDay());
+        alarmIntent.putExtra("information", deadline.getInformation());
+        alarmIntent.putExtra("amount", deadline.getExpenses());
+        pendingIntent = PendingIntent.getBroadcast(this, 0, alarmIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+
+        Calendar endDate = Calendar.getInstance();
+        endDate.set(deadline.getYear(), deadline.getMonth(), deadline.getDay());
+        long triggerTime = endDate.getTimeInMillis() - System.currentTimeMillis();
+        alarmManager.set(AlarmManager.RTC_WAKEUP, 5000, pendingIntent);
+    }
     // This is called everytime the user returns to the main page.
     // We want to update the information every time the main page is returned to.
     @Override
@@ -411,7 +445,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         return deadlines;
     }
 
-
+// Method to clear all data, both monthly and calendar
     public void resetInfo() {
         if (monthlyMapping != null && !monthlyMapping.isEmpty()) {
             monthlyMapping.clear();

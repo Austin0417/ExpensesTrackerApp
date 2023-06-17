@@ -22,6 +22,12 @@ import android.widget.Button;
 import android.widget.CalendarView;
 import android.widget.TextView;
 
+import com.google.firebase.messaging.FirebaseMessaging;
+import com.google.firebase.messaging.RemoteMessage;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.lang.reflect.Array;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -41,6 +47,8 @@ public class CalendarFragment extends Fragment{
     // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
     private static final String ARG_PARAM1 = "param1";
     private static final String ARG_PARAM2 = "param2";
+    // Remove this later
+    public static final String SENDER_ID = "1056081938816";
 
     // TODO: Rename and change types of parameters
     ExpensesTrackerDatabase db;
@@ -111,7 +119,10 @@ public class CalendarFragment extends Fragment{
                     // Deadline Event
                     if (deadlineDescription != null) {
                         Log.i("Deadline Description", deadlineDescription);
-                        deadlines.add(new DeadlineEvent(data[0], data[1], date, deadlineDescription));
+                        DeadlineEvent deadline = new DeadlineEvent(data[0], data[1], date, deadlineDescription);
+                        deadlines.add(deadline);
+                        parentActivity.setAlarmForDeadline(deadline);
+
                         AsyncTask.execute(new Runnable() {
                             @Override
                             public void run() {
@@ -126,6 +137,26 @@ public class CalendarFragment extends Fragment{
                                 Log.i("Database insertion", "Inserted deadline!");
                             }
                         });
+
+//                        JSONObject payload = new JSONObject();
+//                        try {
+//                            JSONObject notificationData = new JSONObject();
+//                            JSONObject payloadData = new JSONObject();
+//                            notificationData.put("title", "Upcoming deadline");
+//                            notificationData.put("body", "Alert, a deadline is approaching!");
+//                            payloadData.put("amount", data[0]);
+//                            payloadData.put("year", currentYear);
+//                            payloadData.put("month", currentMonth);
+//                            payloadData.put("day", currentDay);
+//                            payload.put("notification", notificationData);
+//                            payload.put("data", payloadData);
+//                            payload.put("to", DeadlineMessagingService.DEVICE_TOKEN);
+//                        } catch (JSONException e) {
+//                            throw new RuntimeException(e);
+//                        }
+//                        FirebaseMessaging.getInstance().send(new RemoteMessage.Builder(SENDER_ID + "@fcm.googleapis.com")
+//                                .addData("payload", payload.toString())
+//                                .build());
                     }
 
                     // Expenses Event
