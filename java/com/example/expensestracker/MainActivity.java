@@ -24,6 +24,7 @@ import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.text.SpannableString;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
@@ -34,6 +35,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.google.firebase.FirebaseApp;
 
@@ -79,9 +81,6 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     private ExpensesTrackerDatabase db;
     private AlarmManager alarmManager;
     private AlarmReceiver alarmReceiver;
-    private Intent alarmIntent;
-    private PendingIntent pendingIntent;
-
 
 
     @Override
@@ -112,8 +111,8 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         manager.addOnBackStackChangedListener(this);
 
         alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-        alarmIntent = new Intent(this, AlarmReceiver.class);
-        alarmIntent.setAction("com.example.expensestracker.ACTION_TRIGGER_ALARM");
+//        alarmIntent = new Intent(this, AlarmReceiver.class);
+//        alarmIntent.setAction("com.example.expensestracker.ACTION_TRIGGER_ALARM");
         //pendingIntent = PendingIntent.getBroadcast(this, 0, alarmIntent, PendingIntent.FLAG_UPDATE_CURRENT);
 
 
@@ -268,20 +267,30 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         });
     }
 
+    public static void clearDeadlineIntentExtras(Intent intent) {
+        intent.removeExtra("year");
+        intent.removeExtra("month");
+        intent.removeExtra("day");
+        intent.removeExtra("information");
+        intent.removeExtra("amount");
+    }
     @SuppressLint("NewAPI")
     public void setAlarmForDeadline(DeadlineEvent deadline) {
-
+        Intent alarmIntent = new Intent(this, AlarmReceiver.class);
+        alarmIntent.setAction("com.example.expensestracker.ACTION_TRIGGER_ALARM");
         alarmIntent.putExtra("year", deadline.getYear());
         alarmIntent.putExtra("month", deadline.getMonth());
         alarmIntent.putExtra("day", deadline.getDay());
         alarmIntent.putExtra("information", deadline.getInformation());
         alarmIntent.putExtra("amount", deadline.getExpenses());
-        pendingIntent = PendingIntent.getBroadcast(this, 0, alarmIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+        PendingIntent pIntent = PendingIntent.getBroadcast(this, 0, alarmIntent, PendingIntent.FLAG_UPDATE_CURRENT);
 
         Calendar endDate = Calendar.getInstance();
-        endDate.set(deadline.getYear(), deadline.getMonth(), deadline.getDay());
+        endDate.set(deadline.getYear(), deadline.getMonth() - 1, deadline.getDay() - 1);
         long triggerTime = endDate.getTimeInMillis() - System.currentTimeMillis();
-        alarmManager.set(AlarmManager.RTC_WAKEUP, 5000, pendingIntent);
+        Log.i("Trigger time", "Milliseconds: " + triggerTime);
+
+        alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + triggerTime, pIntent);
     }
     // This is called everytime the user returns to the main page.
     // We want to update the information every time the main page is returned to.
@@ -374,22 +383,22 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     @SuppressLint("MissingPermission")
     public void updateTextColorStatus() {
         if (budget <= 150) {
-            if (notificationsEnabled) {
-                NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(this, NotificationHelper.CHANNEL_ID)
-                        .setContentTitle("Budget Alert")
-                        .setContentText("Warning: Approaching budget limit")
-                        .setPriority(NotificationCompat.PRIORITY_HIGH)
-                        .setAutoCancel(true)
-                        .setSmallIcon(R.drawable.budget_limit_alert)
-                        .setTimeoutAfter(5000);
-                NotificationManager manager = NotificationHelper.createNotificationChannel(this);
-                //NotificationManagerCompat notificationManager = NotificationManagerCompat.from(this);
-                if (manager != null) {
-                    manager.notify(notificationId, notificationBuilder.build());
-                    notificationId++;
-                    notificationsEnabled = false;
-                }
-            }
+//            if (notificationsEnabled) {
+//                NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(this, NotificationHelper.CHANNEL_ID)
+//                        .setContentTitle("Budget Alert")
+//                        .setContentText("Warning: Approaching budget limit")
+//                        .setPriority(NotificationCompat.PRIORITY_HIGH)
+//                        .setAutoCancel(true)
+//                        .setSmallIcon(R.drawable.budget_limit_alert)
+//                        .setTimeoutAfter(5000);
+//                NotificationManager manager = NotificationHelper.createNotificationChannel(this);
+//                //NotificationManagerCompat notificationManager = NotificationManagerCompat.from(this);
+//                if (manager != null) {
+//                    manager.notify(notificationId, notificationBuilder.build());
+//                    notificationId++;
+//                    notificationsEnabled = false;
+//                }
+//            }
 
             String[] fullText = generateUpdatedText(expenses, income, budget, deadlineCount);
             SpannableStringBuilder spannableStringBuilder = new SpannableStringBuilder(fullText[0] + fullText[1]);

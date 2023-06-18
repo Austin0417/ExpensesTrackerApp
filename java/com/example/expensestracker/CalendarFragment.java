@@ -21,6 +21,7 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.CalendarView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.RemoteMessage;
@@ -120,8 +121,15 @@ public class CalendarFragment extends Fragment{
                     if (deadlineDescription != null) {
                         Log.i("Deadline Description", deadlineDescription);
                         DeadlineEvent deadline = new DeadlineEvent(data[0], data[1], date, deadlineDescription);
+                        Calendar calendar = Calendar.getInstance();
+                        calendar.set(deadline.getYear(), deadline.getMonth() - 1, deadline.getDay());
+                        if (calendar.getTimeInMillis() - System.currentTimeMillis() < 0) {
+                            Toast.makeText(getActivity(), "Cannot set a deadline in the past!", Toast.LENGTH_LONG).show();
+                            return;
+                        }
                         deadlines.add(deadline);
                         parentActivity.setAlarmForDeadline(deadline);
+                        Toast.makeText(getActivity(), "Successfully set deadline for " + deadline.getMonth() + "/" + deadline.getDay() + "/" + deadline.getYear(), Toast.LENGTH_LONG).show();
 
                         AsyncTask.execute(new Runnable() {
                             @Override

@@ -5,11 +5,20 @@ import android.app.NotificationManager;
 import android.content.Context;
 import android.os.Build;
 
+import androidx.core.app.NotificationManagerCompat;
+
+import java.util.UUID;
+
 public class NotificationHelper {
     public static final String CHANNEL_ID = "111";
+    public static int notificationID = UUID.randomUUID().hashCode();
 
-    public static NotificationManager createNotificationChannel(Context context) {
-        NotificationManager manager = null;
+
+    public static void generateRandomID(int notificationID) {
+        notificationID = UUID.randomUUID().hashCode();
+    }
+    public static NotificationManagerCompat createNotificationChannel(Context context) {
+        NotificationManagerCompat manager = null;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             String name = context.getString(R.string.channel_name);
             String description = context.getString(R.string.channel_description);
@@ -18,7 +27,7 @@ public class NotificationHelper {
             channel.setDescription(description);
             channel.enableVibration(true);
 
-            manager = context.getSystemService(NotificationManager.class);
+            manager = NotificationManagerCompat.from(context);
             manager.createNotificationChannel(channel);
         }
         return manager;

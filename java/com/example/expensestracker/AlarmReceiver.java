@@ -1,12 +1,19 @@
 package com.example.expensestracker;
 
+import android.annotation.SuppressLint;
+import android.app.NotificationManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.media.RingtoneManager;
 import android.os.Bundle;
+import android.text.Html;
+import android.text.SpannableString;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
 
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
@@ -19,6 +26,7 @@ import org.json.JSONObject;
 
 public class AlarmReceiver extends BroadcastReceiver {
     @Override
+    @SuppressLint("MissingPermission")
     public void onReceive(Context context, Intent intent) {
         Log.i("Alarm", "Alarm successfully activated!");
         if (intent.getExtras() != null) {
@@ -28,6 +36,21 @@ public class AlarmReceiver extends BroadcastReceiver {
             int currentMonth = intent.getIntExtra("month", -1);
             int currentDay = intent.getIntExtra("day", -1);
             double amount = intent.getDoubleExtra("amount", -1);
+            String information = intent.getStringExtra("information");
+            String notificationText = "Date: " + currentMonth + "/" + currentDay + "/" + currentYear + "<br>Amount: " + amount + "<br>" + information;
+            SpannableString formattedText = new SpannableString(Html.fromHtml(notificationText, Html.FROM_HTML_MODE_LEGACY));
+            NotificationCompat.Builder builder = new NotificationCompat.Builder(context, NotificationHelper.CHANNEL_ID)
+                    .setContentTitle("Deadline Alert")
+                    .setContentText(formattedText)
+                    .setStyle(new NotificationCompat.BigTextStyle().bigText(formattedText).setBigContentTitle("Deadline Alert"))
+                    .setPriority(NotificationCompat.PRIORITY_HIGH)
+                    .setSmallIcon(R.drawable.budget_limit_alert)
+                    .setAutoCancel(true)
+                    .setVibrate(new long[]{0, 500, 500, 500})
+                    .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION));
+            NotificationManagerCompat manager = NotificationHelper.createNotificationChannel(context);
+            manager.notify(NotificationHelper.notificationID, builder.build());
+            NotificationHelper.generateRandomID(NotificationHelper.notificationID);
             FirebaseMessaging.getInstance().getToken().addOnCompleteListener(new OnCompleteListener<String>() {
                 @Override
                 public void onComplete(@NonNull Task<String> task) {

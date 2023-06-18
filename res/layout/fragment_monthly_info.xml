@@ -9,34 +9,28 @@
 
     <EditText
         android:id="@+id/monthlyExpenses"
-        android:layout_width="370dp"
-        android:layout_height="256dp"
-        android:layout_marginStart="22dp"
-        android:layout_marginTop="38dp"
-        android:layout_marginEnd="22dp"
-        android:layout_marginBottom="35dp"
+        android:layout_width="305dp"
+        android:layout_height="218dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
         android:ems="10"
         android:hint="Enter monthly expenses"
         android:inputType="numberDecimal"
         app:layout_constraintBottom_toTopOf="@+id/monthlyIncome"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintStart_toStartOf="parent" />
 
     <EditText
         android:id="@+id/monthlyIncome"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_marginStart="20dp"
-        android:layout_marginTop="377dp"
-        android:layout_marginEnd="20dp"
-        android:layout_marginBottom="51dp"
+        android:layout_width="307dp"
+        android:layout_height="194dp"
+        android:layout_marginStart="14dp"
+        android:layout_marginTop="290dp"
+        android:layout_marginEnd="14dp"
         android:ems="10"
         android:hint="Enter monthly income"
         android:inputType="numberDecimal"
-        app:layout_constraintBottom_toTopOf="@+id/backBtn"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="1.0"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
@@ -44,10 +38,9 @@
         android:id="@+id/backBtn"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:layout_marginBottom="2dp"
+        android:layout_marginStart="68dp"
+        android:layout_marginTop="28dp"
         android:text="Back"
-        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/monthlyIncome" />
 
@@ -55,10 +48,10 @@
         android:id="@+id/resetBtn"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="2dp"
+        android:layout_marginTop="28dp"
+        android:layout_marginEnd="44dp"
         android:text="Reset"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/monthlyIncome" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
