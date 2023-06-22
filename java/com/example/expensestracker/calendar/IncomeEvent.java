@@ -1,7 +1,8 @@
-package com.example.expensestracker;
+package com.example.expensestracker.calendarevents;
+
+import com.example.expensestracker.calendarevents.CalendarEvent;
 
 import java.time.LocalDate;
-import java.util.Date;
 
 public class IncomeEvent extends CalendarEvent {
     public IncomeEvent(double expenses, double income, LocalDate date) {

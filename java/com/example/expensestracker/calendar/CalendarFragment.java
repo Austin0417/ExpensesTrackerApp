@@ -23,17 +23,14 @@ import android.widget.CalendarView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.google.firebase.messaging.FirebaseMessaging;
-import com.google.firebase.messaging.RemoteMessage;
+import com.example.expensestracker.calendarevents.CalendarEvent;
+import com.example.expensestracker.calendarevents.DeadlineEvent;
+import com.example.expensestracker.calendarevents.ExpensesEvent;
+import com.example.expensestracker.calendarevents.IncomeEvent;
 
-import org.json.JSONException;
-import org.json.JSONObject;
-
-import java.lang.reflect.Array;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -57,6 +54,7 @@ public class CalendarFragment extends Fragment{
     private String mParam2;
     private Button exitBtn;
     private Button deadlineBtn;
+    private Button clearBtn;
     private CalendarView calendar;
     private CalendarDataPass dataPasser;
     private int currentMonth, currentYear, currentDay;
@@ -113,7 +111,54 @@ public class CalendarFragment extends Fragment{
             @SuppressLint("NewApi")
             public void onFragmentResult(@NonNull String requestKey, @NonNull Bundle result) {
                 double data[] = result.getDoubleArray("calendarevent");
+                boolean clearSelections[] = result.getBooleanArray("buttons_selected");
                 String deadlineDescription = result.getString("deadline_description");
+
+                if (clearSelections != null) {
+                    if (clearSelections[0] && clearSelections[1]) {
+                        // Clear both calendar and deadlines
+                        if (monthlyExpensesMapping.containsKey(currentMonth)) {
+                            monthlyExpensesMapping.get(currentMonth).clear();
+                            initializeData();
+                        }
+                        deadlines.clear();
+                        AsyncTask.execute(new Runnable() {
+                            @Override
+                            public void run() {
+                                CalendarEventsDAO calendarDAO = db.calendarEventsDAO();
+                                DeadlineEventsDAO deadlineDAO = db.deadlineEventsDAO();
+                                calendarDAO.clearCalendarEvents();
+                                deadlineDAO.clearDeadlineEvents();
+                            }
+                        });
+
+                    } else if (clearSelections[0]) {
+                        // Clear only calendar events
+                        if (monthlyExpensesMapping.containsKey(currentMonth)) {
+                            monthlyExpensesMapping.get(currentMonth).clear();
+                            initializeData();
+                            AsyncTask.execute(new Runnable() {
+                                @Override
+                                public void run() {
+                                    CalendarEventsDAO dao = db.calendarEventsDAO();
+                                    dao.clearCalendarEvents();
+                                }
+                            });
+                        }
+                    } else {
+                        // Clear only deadline events
+                        deadlines.clear();
+                        AsyncTask.execute(new Runnable() {
+                            @Override
+                            public void run() {
+                                DeadlineEventsDAO dao = db.deadlineEventsDAO();
+                                dao.clearDeadlineEvents();
+                                Log.i("Clearing", "Deadline Events, success");
+                            }
+                        });
+                    }
+                }
+
                 if (data != null) {
                     LocalDate date = LocalDate.of(currentYear, currentMonth, currentDay);
 
@@ -123,6 +168,7 @@ public class CalendarFragment extends Fragment{
                         DeadlineEvent deadline = new DeadlineEvent(data[0], data[1], date, deadlineDescription);
                         Calendar calendar = Calendar.getInstance();
                         calendar.set(deadline.getYear(), deadline.getMonth() - 1, deadline.getDay());
+                        // Check for the case where the user attempts to add a deadline for a past date
                         if (calendar.getTimeInMillis() - System.currentTimeMillis() < 0) {
                             Toast.makeText(getActivity(), "Cannot set a deadline in the past!", Toast.LENGTH_LONG).show();
                             return;
@@ -131,6 +177,7 @@ public class CalendarFragment extends Fragment{
                         parentActivity.setAlarmForDeadline(deadline);
                         Toast.makeText(getActivity(), "Successfully set deadline for " + deadline.getMonth() + "/" + deadline.getDay() + "/" + deadline.getYear(), Toast.LENGTH_LONG).show();
 
+                        // After every calendar event addition, we have to update the database accordingly
                         AsyncTask.execute(new Runnable() {
                             @Override
                             public void run() {
@@ -145,26 +192,6 @@ public class CalendarFragment extends Fragment{
                                 Log.i("Database insertion", "Inserted deadline!");
                             }
                         });
-
-//                        JSONObject payload = new JSONObject();
-//                        try {
-//                            JSONObject notificationData = new JSONObject();
-//                            JSONObject payloadData = new JSONObject();
-//                            notificationData.put("title", "Upcoming deadline");
-//                            notificationData.put("body", "Alert, a deadline is approaching!");
-//                            payloadData.put("amount", data[0]);
-//                            payloadData.put("year", currentYear);
-//                            payloadData.put("month", currentMonth);
-//                            payloadData.put("day", currentDay);
-//                            payload.put("notification", notificationData);
-//                            payload.put("data", payloadData);
-//                            payload.put("to", DeadlineMessagingService.DEVICE_TOKEN);
-//                        } catch (JSONException e) {
-//                            throw new RuntimeException(e);
-//                        }
-//                        FirebaseMessaging.getInstance().send(new RemoteMessage.Builder(SENDER_ID + "@fcm.googleapis.com")
-//                                .addData("payload", payload.toString())
-//                                .build());
                     }
 
                     // Expenses Event
@@ -254,17 +281,20 @@ public class CalendarFragment extends Fragment{
     }
 
     @Override
+    @SuppressLint("NewAPI")
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         // Inflate the layout for this fragment
         View v = inflater.inflate(R.layout.fragment_calendar, container, false);
         exitBtn = v.findViewById(R.id.exitBtn);
         deadlineBtn = v.findViewById(R.id.deadlineBtn);
+        clearBtn = v.findViewById(R.id.clearBtn);
         calendar = v.findViewById(R.id.calendarView);
         list = v.findViewById(R.id.recyclerView);
+
         initializeData();
 
-
+        // Setting click listeners for buttons
         exitBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -303,8 +333,14 @@ public class CalendarFragment extends Fragment{
                 currentYear = year;
                 currentDay = dayOfMonth;
                 CalendarDialogFragment dialog = new CalendarDialogFragment();
-
                 dialog.show(getParentFragmentManager(), "Add additional expenses/income");
+            }
+        });
+        clearBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                ClearDialog clearDialog = new ClearDialog();
+                clearDialog.show(getParentFragmentManager(), "Clear");
             }
         });
         return v;
@@ -315,9 +351,12 @@ public class CalendarFragment extends Fragment{
         dataPasser = (CalendarDataPass) context;
     }
 
+    // Handle to the database for this fragment
     public void setDatabase(ExpensesTrackerDatabase db) {
         this.db = db;
     }
+
+    // Helper method to calculate all financial information
     public static ArrayList<Double> calculateTotalBudget(ArrayList<CalendarEvent> events) {
         // Element 0: Net Additional Budget
         // Element 1: Net Expenses
@@ -366,6 +405,8 @@ public class CalendarFragment extends Fragment{
         }
         return deadlineCount;
     }
+
+    // Displaying deadlines as text information in the TextView for when deadlinesBtn is clicked
     public static String displayDeadlines(ArrayList<DeadlineEvent> deadlines) {
         String res = "";
         for (int i = 0; i < deadlines.size(); i++) {
@@ -374,6 +415,7 @@ public class CalendarFragment extends Fragment{
         return res;
     }
 
+    // Initializes and updates the RecyclerView that displays all calendar events in a list
     @SuppressLint("NewApi")
     public void initializeData() {
         if (monthlyExpensesMapping != null && !monthlyExpensesMapping.isEmpty() && monthlyExpensesMapping.containsKey(currentMonth)) {

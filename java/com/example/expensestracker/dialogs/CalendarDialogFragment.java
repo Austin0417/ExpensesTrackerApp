@@ -67,7 +67,8 @@ public class CalendarDialogFragment extends DialogFragment {
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         int checkedItem = -1;
 
-        builder.setView(dialogView).setPositiveButton("Save", new DialogInterface.OnClickListener() {
+        builder.setView(dialogView)
+                .setPositiveButton("Save", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialogInterface, int i) {
                 Log.i("Additional info", additionalExpenses.getText().toString() + " " + additionalIncome.getText().toString());
@@ -102,8 +103,6 @@ public class CalendarDialogFragment extends DialogFragment {
             @Override
             public void onClick(DialogInterface dialogInterface, int i) {
                 dismiss();
-                //CalendarDialogFragment.this.getDialog().cancel();
-
             }
         }).setSingleChoiceItems(choices, checkedItem, new DialogInterface.OnClickListener() {
             @Override
