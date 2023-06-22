@@ -1,4 +1,4 @@
-package com.example.expensestracker.calendarevents;
+package com.example.expensestracker.calendar;
 
 import android.annotation.SuppressLint;
 

@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".CalendarFragment">
+    tools:context=".calendar.CalendarFragment">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
@@ -55,6 +55,15 @@
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="@+id/exitBtn"
             app:layout_constraintVertical_bias="0.0" />
+
+        <Button
+            android:id="@+id/clearBtn"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="31dp"
+            android:text="Clear"
+            app:layout_constraintBaseline_toBaselineOf="@+id/deadlineBtn"
+            app:layout_constraintEnd_toStartOf="@+id/deadlineBtn" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </FrameLayout>

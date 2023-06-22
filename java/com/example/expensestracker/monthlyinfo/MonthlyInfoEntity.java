@@ -1,4 +1,4 @@
-package com.example.expensestracker;
+package com.example.expensestracker.monthlyinfo;
 
 import androidx.room.ColumnInfo;
 import androidx.room.Entity;

@@ -1,6 +1,6 @@
-package com.example.expensestracker.calendarevents;
+package com.example.expensestracker.calendar;
 
-import com.example.expensestracker.calendarevents.CalendarEvent;
+import com.example.expensestracker.calendar.CalendarEvent;
 
 import java.time.LocalDate;
 import java.util.UUID;

@@ -37,7 +37,18 @@ import android.widget.FrameLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.example.expensestracker.calendar.CalendarDataPass;
+import com.example.expensestracker.calendar.CalendarEvent;
+import com.example.expensestracker.calendar.CalendarFragment;
+import com.example.expensestracker.calendar.DeadlineEvent;
+import com.example.expensestracker.calendar.ExpensesEvent;
+import com.example.expensestracker.calendar.IncomeEvent;
+import com.example.expensestracker.monthlyinfo.MonthlyInfoEntity;
+import com.example.expensestracker.monthlyinfo.MonthlyInfoFragment;
+import com.example.expensestracker.notifications.AlarmReceiver;
 import com.google.firebase.FirebaseApp;
+import com.example.expensestracker.monthlyinfo.PassMonthlyData;
+
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -80,7 +91,6 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     private boolean notificationsEnabled = true;
     private ExpensesTrackerDatabase db;
     private AlarmManager alarmManager;
-    private AlarmReceiver alarmReceiver;
 
 
     @Override
@@ -328,7 +338,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     public void onCalendarDataPassed(HashMap<Integer, HashMap<LocalDate, ArrayList<CalendarEvent>>> mapping, ArrayList<DeadlineEvent> deadlines) {
         monthlyMapping = mapping;
         this.deadlines = deadlines;
-        if (this.deadlines != null && !this.deadlines.isEmpty()) {
+        if (this.deadlines != null) {
             deadlineCount = this.deadlines.size();
         }
         if (monthlyMapping != null && !monthlyMapping.isEmpty()) {
@@ -473,7 +483,6 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
                 deadlineDAO.clearDeadlineEvents();
             }
         });
-
 
         income = 0;
         expenses = 0;

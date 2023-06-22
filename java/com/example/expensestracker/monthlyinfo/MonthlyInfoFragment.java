@@ -1,4 +1,4 @@
-package com.example.expensestracker;
+package com.example.expensestracker.monthlyinfo;
 
 import android.content.Context;
 import android.os.Bundle;
@@ -14,6 +14,10 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
+
+import com.example.expensestracker.R;
+import com.example.expensestracker.MainActivity;
+import com.example.expensestracker.dialogs.ResetConfirmationDialog;
 
 
 /**

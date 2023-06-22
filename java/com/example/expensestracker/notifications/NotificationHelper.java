@@ -1,4 +1,4 @@
-package com.example.expensestracker;
+package com.example.expensestracker.notifications;
 
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -6,6 +6,8 @@ import android.content.Context;
 import android.os.Build;
 
 import androidx.core.app.NotificationManagerCompat;
+
+import com.example.expensestracker.R;
 
 import java.util.UUID;
 

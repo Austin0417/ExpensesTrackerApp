@@ -1,7 +1,7 @@
-package com.example.expensestracker;
+package com.example.expensestracker.calendar;
 
-import com.example.expensestracker.calendarevents.CalendarEvent;
-import com.example.expensestracker.calendarevents.DeadlineEvent;
+import com.example.expensestracker.calendar.CalendarEvent;
+import com.example.expensestracker.calendar.DeadlineEvent;
 
 import java.time.LocalDate;
 import java.util.ArrayList;

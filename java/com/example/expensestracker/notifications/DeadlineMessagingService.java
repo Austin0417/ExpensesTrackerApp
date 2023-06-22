@@ -1,4 +1,4 @@
-package com.example.expensestracker;
+package com.example.expensestracker.notifications;
 
 import android.util.Log;
 

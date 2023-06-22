@@ -1,4 +1,4 @@
-package com.example.expensestracker;
+package com.example.expensestracker.calendar;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
@@ -23,10 +23,19 @@ import android.widget.CalendarView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.example.expensestracker.calendarevents.CalendarEvent;
-import com.example.expensestracker.calendarevents.DeadlineEvent;
-import com.example.expensestracker.calendarevents.ExpensesEvent;
-import com.example.expensestracker.calendarevents.IncomeEvent;
+import com.example.expensestracker.CalendarEventsDAO;
+import com.example.expensestracker.CalendarEventsEntity;
+import com.example.expensestracker.DeadlineEventsDAO;
+import com.example.expensestracker.DeadlineEventsEntity;
+import com.example.expensestracker.ExpensesTrackerDatabase;
+import com.example.expensestracker.MainActivity;
+import com.example.expensestracker.R;
+import com.example.expensestracker.calendar.CalendarEvent;
+import com.example.expensestracker.calendar.DeadlineEvent;
+import com.example.expensestracker.calendar.ExpensesEvent;
+import com.example.expensestracker.calendar.IncomeEvent;
+import com.example.expensestracker.dialogs.CalendarDialogFragment;
+import com.example.expensestracker.dialogs.ClearDialog;
 
 import java.time.LocalDate;
 import java.util.ArrayList;

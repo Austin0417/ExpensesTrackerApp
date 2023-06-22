@@ -1,4 +1,4 @@
-package com.example.expensestracker;
+package com.example.expensestracker.dialogs;
 
 import android.app.AlertDialog;
 import android.app.Dialog;
@@ -18,6 +18,8 @@ import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.Spinner;
 import android.widget.TextView;
+
+import com.example.expensestracker.R;
 
 /**
  * A simple {@link Fragment} subclass.

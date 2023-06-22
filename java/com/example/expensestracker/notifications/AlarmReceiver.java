@@ -1,4 +1,4 @@
-package com.example.expensestracker;
+package com.example.expensestracker.notifications;
 
 import android.annotation.SuppressLint;
 import android.app.NotificationManager;
@@ -15,6 +15,8 @@ import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 
+import com.example.expensestracker.R;
+import com.example.expensestracker.calendar.CalendarFragment;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.FirebaseApp;
