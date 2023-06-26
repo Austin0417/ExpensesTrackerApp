@@ -39,6 +39,24 @@ public class CalendarEvent {
         this.income = income;
     }
 
+    public void updateAmount(double newAmount) {
+        if (this instanceof ExpensesEvent) {
+            setExpenses(newAmount);
+        } else {
+            setIncome(newAmount);
+        }
+    }
+    public double getAmount() {
+        if (this instanceof ExpensesEvent) {
+            return getExpenses();
+        } else {
+            return getIncome();
+        }
+    }
+
+    public boolean isExpense() { return this instanceof ExpensesEvent; }
+    public boolean isIncome() { return this instanceof IncomeEvent; }
+
     @SuppressLint("NewAPI")
     public int getMonth() {
         return date.getMonthValue();

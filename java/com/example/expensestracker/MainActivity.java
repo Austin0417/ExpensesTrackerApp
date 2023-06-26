@@ -41,8 +41,10 @@ import com.example.expensestracker.calendar.CalendarDataPass;
 import com.example.expensestracker.calendar.CalendarEvent;
 import com.example.expensestracker.calendar.CalendarFragment;
 import com.example.expensestracker.calendar.DeadlineEvent;
+import com.example.expensestracker.calendar.EditEvent;
 import com.example.expensestracker.calendar.ExpensesEvent;
 import com.example.expensestracker.calendar.IncomeEvent;
+import com.example.expensestracker.dialogs.EditEventDialog;
 import com.example.expensestracker.monthlyinfo.MonthlyInfoEntity;
 import com.example.expensestracker.monthlyinfo.MonthlyInfoFragment;
 import com.example.expensestracker.notifications.AlarmReceiver;
@@ -58,7 +60,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class MainActivity extends AppCompatActivity implements FragmentManager.OnBackStackChangedListener, PassMonthlyData, CalendarDataPass {
+public class MainActivity extends AppCompatActivity implements FragmentManager.OnBackStackChangedListener, PassMonthlyData, CalendarDataPass, EditEvent {
     private static final int NOTIFICATION_STATUS_CODE = 1;
     // UI Elements of the main page
     FrameLayout addMonthlyInfoFragment;
@@ -87,11 +89,16 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     private HashMap<Integer, HashMap<LocalDate, ArrayList<CalendarEvent>>> monthlyMapping;
     // Simple ArrayList<DeadlineEvent> which stores all user added deadlines, regardless of month
     private ArrayList<DeadlineEvent> deadlines;
+
     boolean upToDate = true;
     private boolean notificationsEnabled = true;
     private ExpensesTrackerDatabase db;
     private AlarmManager alarmManager;
 
+    private CalendarFragment calendar;
+
+    private Observer<List<CalendarEventsEntity>> observer;
+    private LiveData<List<CalendarEventsEntity>> calendarEvents;
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
@@ -110,7 +117,6 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main2);
 
-
         // Initializing all UI elements and obtaining a reference to them
         addBtn = findViewById(R.id.addBtn);
         initializeBtn = findViewById(R.id.initializeBtn);
@@ -121,10 +127,6 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         manager.addOnBackStackChangedListener(this);
 
         alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-//        alarmIntent = new Intent(this, AlarmReceiver.class);
-//        alarmIntent.setAction("com.example.expensestracker.ACTION_TRIGGER_ALARM");
-        //pendingIntent = PendingIntent.getBroadcast(this, 0, alarmIntent, PendingIntent.FLAG_UPDATE_CURRENT);
-
 
         Log.i("Current Month", String.valueOf(Calendar.getInstance().get(Calendar.MONTH) + 1));
 
@@ -132,7 +134,8 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         addBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                CalendarFragment calendar = new CalendarFragment();
+                calendarEvents.removeObserver(observer);
+                calendar = new CalendarFragment();
                 calendar.setDatabase(db);
                 hideMainUI();
                 FragmentTransaction transaction = manager.beginTransaction();
@@ -216,11 +219,13 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
             }
         });
     }
+
+    // Grabs all calendar events from previous state, and initializes local HashMap data struct with the data
     @SuppressLint("NewAPI")
     public void retrieveCalendarEventsFromDatabase() {
         CalendarEventsDAO dao = new CalendarEventsDAO_Impl(db);
-        LiveData<List<CalendarEventsEntity>> calendarEvents = dao.getCalendarEvents();
-        calendarEvents.observe(this, new Observer<List<CalendarEventsEntity>>() {
+        calendarEvents = dao.getCalendarEvents();
+        observer = new Observer<List<CalendarEventsEntity>>() {
             @Override
             public void onChanged(List<CalendarEventsEntity> calendarEventsEntities) {
                 if (calendarEventsEntities != null && !calendarEventsEntities.isEmpty()) {
@@ -274,16 +279,10 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
                     }
                 }
             }
-        });
+        };
+        calendarEvents.observe(this, observer);
     }
 
-    public static void clearDeadlineIntentExtras(Intent intent) {
-        intent.removeExtra("year");
-        intent.removeExtra("month");
-        intent.removeExtra("day");
-        intent.removeExtra("information");
-        intent.removeExtra("amount");
-    }
     @SuppressLint("NewAPI")
     public void setAlarmForDeadline(DeadlineEvent deadline) {
         Intent alarmIntent = new Intent(this, AlarmReceiver.class);
@@ -302,6 +301,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
 
         alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + triggerTime, pIntent);
     }
+
     // This is called everytime the user returns to the main page.
     // We want to update the information every time the main page is returned to.
     @Override
@@ -332,8 +332,6 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
 
     // Same idea as onDataPassed, but for CalendarFragment instead
     // This passes back the hashmap that keeps track of events in all of the months back to the main page
-    // We then iterate through the hashmap entry for the current month, and find the sum of all of the expenses and income that the user added for the current month
-    // Update the information displayed on the main page accordingly
     @Override
     public void onCalendarDataPassed(HashMap<Integer, HashMap<LocalDate, ArrayList<CalendarEvent>>> mapping, ArrayList<DeadlineEvent> deadlines) {
         monthlyMapping = mapping;
@@ -341,6 +339,63 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         if (this.deadlines != null) {
             deadlineCount = this.deadlines.size();
         }
+        else {
+            Log.i("Failure", "Could not process mapping data");
+        }
+    }
+    @Override
+    @SuppressLint("NewAPI")
+    public void sendDate(int month, int year, int day) {
+        Log.i("Send Date", month + "/" + day + "/" + year);
+        HashMap<LocalDate, ArrayList<CalendarEvent>> currentMonthEvents = monthlyMapping.get(month);
+        ArrayList<CalendarEvent> events = currentMonthEvents.get(LocalDate.of(year, month, day));
+        EditEventDialog dialog = new EditEventDialog(events);
+        dialog.show(getSupportFragmentManager(), "Edit Event");
+    }
+
+    @Override
+    public void newAmount(CalendarEvent targetEvent, double amount) {
+        Log.i("New Amount", targetEvent.getMonth() + "/" + targetEvent.getDay() + "/" + targetEvent.getYear() + ": $" + amount);
+        // This simply updates the RecyclerView to display the new amount set by the user
+        if (calendar != null) {
+            calendar.updateRecyclerView();
+        }
+        AsyncTask.execute(new Runnable() {
+            @Override
+            public void run() {
+                // Here we utilize a custom query to update the event stored in the database with the new amount
+                // Two separate methods, depending on whether the event is of class ExpensesEvent or IncomeEvent
+                CalendarEventsDAO dao = new CalendarEventsDAO_Impl(db);
+                if (targetEvent instanceof ExpensesEvent) {
+                    dao.updateExpenseEvent(amount, targetEvent.getMonth(), targetEvent.getDay(), targetEvent.getYear());
+                } else {
+                    dao.updateIncomeEvent(amount, targetEvent.getMonth(), targetEvent.getDay(), targetEvent.getYear());
+                }
+            }
+        });
+    }
+
+    @Override
+    public void deleteDate(CalendarEvent selectedEvent) {
+        if (calendar != null) {
+            calendar.updateRecyclerView();
+        }
+        AsyncTask.execute(new Runnable() {
+            @Override
+            public void run() {
+                CalendarEventsDAO dao = new CalendarEventsDAO_Impl(db);
+                if (selectedEvent.isExpense()) {
+                    dao.deleteExpenseEvent(selectedEvent.getExpenses(), selectedEvent.getDay(), selectedEvent.getMonth(), selectedEvent.getYear());
+                } else {
+                    dao.deleteIncomeEvent(selectedEvent.getIncome(), selectedEvent.getDay(), selectedEvent.getMonth(), selectedEvent.getYear());
+                }
+            }
+        });
+    }
+
+    // We iterate through the hashmap entry for the current month, and find the sum of all of the expenses and income that the user added for the current month
+    // Update the information displayed on the main page accordingly
+    public void sumEventsInCurrentMonth() {
         if (monthlyMapping != null && !monthlyMapping.isEmpty()) {
             double totalAdditionalMonthlyExpenses = 0;
             double totalAdditionalMonthlyIncome = 0;
@@ -352,14 +407,12 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
                     ArrayList<CalendarEvent> events = entry.getValue();
                     ArrayList<Double> dayExpensesAndIncome = CalendarFragment.calculateTotalBudget(events);
                     for (int i = 0; i < events.size(); i++) {
-                            notificationsEnabled = true;
-                            if (events.get(i) instanceof ExpensesEvent) {
-                                totalAdditionalMonthlyExpenses += events.get(i).getExpenses();
-                            } else if (events.get(i) instanceof IncomeEvent) {
-                                totalAdditionalMonthlyIncome += events.get(i).getIncome();
-                            } else {
-
-                            }
+                        notificationsEnabled = true;
+                        if (events.get(i) instanceof ExpensesEvent) {
+                            totalAdditionalMonthlyExpenses += events.get(i).getExpenses();
+                        } else if (events.get(i) instanceof IncomeEvent) {
+                            totalAdditionalMonthlyIncome += events.get(i).getIncome();
+                        }
                     }
                 }
             }
@@ -379,37 +432,16 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
             additionalIncomeFromCalendar = totalAdditionalMonthlyIncome - netIncomeFromCalendar;
             netExpenseFromCalendar = totalAdditionalMonthlyExpenses;
             netIncomeFromCalendar = totalAdditionalMonthlyIncome;
-            expenses += additionalExpensesFromCalendar;
-            income += additionalIncomeFromCalendar;
             budget += Math.round((additionalIncomeFromCalendar - additionalExpensesFromCalendar) * 100.0) / 100.0;
             Log.i("New Budget", String.valueOf(budget));
-
-            updateTextColorStatus();
-        } else {
-            Log.i("Failure", "Could not process mapping data");
+            overview.setText(String.join("",generateUpdatedText(expenses, income, budget, deadlineCount)));
         }
     }
+
 
     @SuppressLint("MissingPermission")
     public void updateTextColorStatus() {
         if (budget <= 150) {
-//            if (notificationsEnabled) {
-//                NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(this, NotificationHelper.CHANNEL_ID)
-//                        .setContentTitle("Budget Alert")
-//                        .setContentText("Warning: Approaching budget limit")
-//                        .setPriority(NotificationCompat.PRIORITY_HIGH)
-//                        .setAutoCancel(true)
-//                        .setSmallIcon(R.drawable.budget_limit_alert)
-//                        .setTimeoutAfter(5000);
-//                NotificationManager manager = NotificationHelper.createNotificationChannel(this);
-//                //NotificationManagerCompat notificationManager = NotificationManagerCompat.from(this);
-//                if (manager != null) {
-//                    manager.notify(notificationId, notificationBuilder.build());
-//                    notificationId++;
-//                    notificationsEnabled = false;
-//                }
-//            }
-
             String[] fullText = generateUpdatedText(expenses, income, budget, deadlineCount);
             SpannableStringBuilder spannableStringBuilder = new SpannableStringBuilder(fullText[0] + fullText[1]);
             SpannableString budgetText = new SpannableString(fullText[2]);
@@ -493,7 +525,6 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         netExpenseFromCalendar = 0;
         netIncomeFromCalendar = 0;
         Log.i("Main Info", "Expenses: " + expenses + "\nIncome: " + income + "\nBudget: " + budget);
-
         overview.setText(String.join("", generateUpdatedText(expenses, income, budget, 0)));
         unhideMainUI();
     }

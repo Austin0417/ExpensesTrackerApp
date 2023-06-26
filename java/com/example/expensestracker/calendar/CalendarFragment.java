@@ -19,7 +19,6 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.CalendarView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -30,12 +29,12 @@ import com.example.expensestracker.DeadlineEventsEntity;
 import com.example.expensestracker.ExpensesTrackerDatabase;
 import com.example.expensestracker.MainActivity;
 import com.example.expensestracker.R;
-import com.example.expensestracker.calendar.CalendarEvent;
-import com.example.expensestracker.calendar.DeadlineEvent;
-import com.example.expensestracker.calendar.ExpensesEvent;
-import com.example.expensestracker.calendar.IncomeEvent;
 import com.example.expensestracker.dialogs.CalendarDialogFragment;
 import com.example.expensestracker.dialogs.ClearDialog;
+import com.prolificinteractive.materialcalendarview.CalendarDay;
+import com.prolificinteractive.materialcalendarview.MaterialCalendarView;
+import com.prolificinteractive.materialcalendarview.OnDateSelectedListener;
+import com.prolificinteractive.materialcalendarview.OnMonthChangedListener;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -48,7 +47,7 @@ import java.util.Map;
  * Use the {@link CalendarFragment#newInstance} factory method to
  * create an instance of this fragment.
  */
-public class CalendarFragment extends Fragment{
+public class CalendarFragment extends Fragment {
 
     // TODO: Rename parameter arguments, choose names that match
     // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
@@ -58,22 +57,32 @@ public class CalendarFragment extends Fragment{
     public static final String SENDER_ID = "1056081938816";
 
     // TODO: Rename and change types of parameters
+
+    // Reference to MainActivity's database
     ExpensesTrackerDatabase db;
     private String mParam1;
     private String mParam2;
+
+    // References to UI elements within fragment_calendar.xml
     private Button exitBtn;
     private Button deadlineBtn;
     private Button clearBtn;
-    private CalendarView calendar;
+    private MaterialCalendarView calendar;
     private CalendarDataPass dataPasser;
-    private int currentMonth, currentYear, currentDay;
-    private HashMap<Integer, HashMap<LocalDate, ArrayList<CalendarEvent>>> monthlyExpensesMapping = new HashMap<Integer, HashMap<LocalDate, ArrayList<CalendarEvent>>>();
-    private ArrayList<DeadlineEvent> deadlines = new ArrayList<DeadlineEvent>();
-
     private RecyclerView list;
     private CustomAdapter mAdapter;
     private RecyclerView.LayoutManager mLayoutManager;
     private String[] mDataset;
+
+    // Private variables to keep track of the currently selected month, year and day in the calendar
+    private int currentMonth, currentYear, currentDay;
+
+    // Main data structure that will be used to store the mappings of months (key) to day-events (value)
+    private HashMap<Integer, HashMap<LocalDate, ArrayList<CalendarEvent>>> monthlyExpensesMapping = new HashMap<Integer, HashMap<LocalDate, ArrayList<CalendarEvent>>>();
+
+    // Simple ArrayList that will keep track of all deadlines, specific date of the deadline is not important
+    private ArrayList<DeadlineEvent> deadlines = new ArrayList<DeadlineEvent>();
+
 
     public CalendarFragment() {
         // Required empty public constructor
@@ -122,13 +131,12 @@ public class CalendarFragment extends Fragment{
                 double data[] = result.getDoubleArray("calendarevent");
                 boolean clearSelections[] = result.getBooleanArray("buttons_selected");
                 String deadlineDescription = result.getString("deadline_description");
-
                 if (clearSelections != null) {
                     if (clearSelections[0] && clearSelections[1]) {
                         // Clear both calendar and deadlines
                         if (monthlyExpensesMapping.containsKey(currentMonth)) {
                             monthlyExpensesMapping.get(currentMonth).clear();
-                            initializeData();
+                            updateRecyclerView();
                         }
                         deadlines.clear();
                         AsyncTask.execute(new Runnable() {
@@ -140,12 +148,11 @@ public class CalendarFragment extends Fragment{
                                 deadlineDAO.clearDeadlineEvents();
                             }
                         });
-
                     } else if (clearSelections[0]) {
                         // Clear only calendar events
                         if (monthlyExpensesMapping.containsKey(currentMonth)) {
                             monthlyExpensesMapping.get(currentMonth).clear();
-                            initializeData();
+                            updateRecyclerView();
                             AsyncTask.execute(new Runnable() {
                                 @Override
                                 public void run() {
@@ -167,7 +174,6 @@ public class CalendarFragment extends Fragment{
                         });
                     }
                 }
-
                 if (data != null) {
                     LocalDate date = LocalDate.of(currentYear, currentMonth, currentDay);
 
@@ -280,13 +286,13 @@ public class CalendarFragment extends Fragment{
 
                     }
                 }
-                initializeData();
+                updateRecyclerView();
+                dataPasser.onCalendarDataPassed(monthlyExpensesMapping, deadlines);
             }
         });
         currentMonth = Calendar.getInstance().get(Calendar.MONTH) + 1;
         currentYear = Calendar.getInstance().get(Calendar.YEAR);
         currentDay = Calendar.getInstance().get(Calendar.DAY_OF_MONTH);
-
     }
 
     @Override
@@ -301,7 +307,9 @@ public class CalendarFragment extends Fragment{
         calendar = v.findViewById(R.id.calendarView);
         list = v.findViewById(R.id.recyclerView);
 
-        initializeData();
+        calendar.setDateSelected(CalendarDay.today(), true);
+
+        updateRecyclerView();
 
         // Setting click listeners for buttons
         exitBtn.setOnClickListener(new View.OnClickListener() {
@@ -309,40 +317,48 @@ public class CalendarFragment extends Fragment{
             public void onClick(View view) {
                 getParentFragmentManager().popBackStack();
                 ((MainActivity) getActivity()).unhideMainUI();
-                ((MainActivity) getActivity()).updateTextColorStatus();
-                dataPasser.onCalendarDataPassed(monthlyExpensesMapping, deadlines);
-
+                ((MainActivity) getActivity()).sumEventsInCurrentMonth();
             }
         });
         deadlineBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
-                builder.setTitle("Deadline Information");
                 LayoutInflater inflater = LayoutInflater.from(getContext());
                 View dialogView = inflater.inflate(R.layout.deadline_info_layout, null);
-                builder.setView(dialogView);
+                AlertDialog dialog = new AlertDialog.Builder(getContext())
+                        .setTitle("Deadline Information")
+                        .setView(dialogView)
+                        .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                dialog.dismiss();
+                            }
+                        })
+                        .create();
                 TextView deadlineText = dialogView.findViewById(R.id.deadlineText);
                 deadlineText.setText(displayDeadlines(deadlines));
-                builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        dialog.dismiss();
-                    }
-                });
-                AlertDialog dialog = builder.create();
                 dialog.show();
             }
         });
-        calendar.setOnDateChangeListener(new CalendarView.OnDateChangeListener() {
+        calendar.setOnDateChangedListener(new OnDateSelectedListener() {
             @Override
-            public void onSelectedDayChange(@NonNull CalendarView calendarView, int year, int month, int dayOfMonth) {
-                Log.i("Selected Date Change", "New date is " + (month + 1) + "/" + dayOfMonth + "/" + year);
-                currentMonth = month + 1;
-                currentYear = year;
-                currentDay = dayOfMonth;
+            public void onDateSelected(@NonNull MaterialCalendarView widget, @NonNull CalendarDay date, boolean selected) {
+                // Every time the user selects a date in the calendar, set current month, year, and day to the user-selected date
+                currentMonth = date.getMonth();
+                Log.i("Month", "Selected Month: " + currentMonth);
+                currentYear = date.getYear();
+                currentDay = date.getDay();
                 CalendarDialogFragment dialog = new CalendarDialogFragment();
                 dialog.show(getParentFragmentManager(), "Add additional expenses/income");
+            }
+        });
+        calendar.setOnMonthChangedListener(new OnMonthChangedListener() {
+            @Override
+            public void onMonthChanged(MaterialCalendarView widget, CalendarDay date) {
+                currentMonth = date.getMonth();
+                Log.i("Month Change", "Current Month=" + currentMonth);
+                currentDay = 1;
+                updateRecyclerView();
             }
         });
         clearBtn.setOnClickListener(new View.OnClickListener() {
@@ -354,11 +370,13 @@ public class CalendarFragment extends Fragment{
         });
         return v;
     }
+
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
         dataPasser = (CalendarDataPass) context;
     }
+
 
     // Handle to the database for this fragment
     public void setDatabase(ExpensesTrackerDatabase db) {
@@ -404,16 +422,6 @@ public class CalendarFragment extends Fragment{
         }
         return size;
     }
-    public static int getNumberOfDeadlines(ArrayList<CalendarEvent> events) {
-        int deadlineCount = 0;
-        for (int i = 0; i < events.size(); i++) {
-            if (events.get(i) instanceof DeadlineEvent && !events.get(i).isMarked()) {
-                deadlineCount++;
-                events.get(i).setMarked(true);
-            }
-        }
-        return deadlineCount;
-    }
 
     // Displaying deadlines as text information in the TextView for when deadlinesBtn is clicked
     public static String displayDeadlines(ArrayList<DeadlineEvent> deadlines) {
@@ -424,23 +432,37 @@ public class CalendarFragment extends Fragment{
         return res;
     }
 
-    // Initializes and updates the RecyclerView that displays all calendar events in a list
+    // Initializes and updates the RecyclerView that displays all calendar events
     @SuppressLint("NewApi")
-    public void initializeData() {
-        if (monthlyExpensesMapping != null && !monthlyExpensesMapping.isEmpty() && monthlyExpensesMapping.containsKey(currentMonth)) {
-            HashMap<LocalDate, ArrayList<CalendarEvent>> events = monthlyExpensesMapping.get(currentMonth);
-            int datasetSize = getTotalEventsInMonth(events);
-            mDataset = new String[datasetSize];
-            int datasetCounter = 0;
-            for (Map.Entry<LocalDate, ArrayList<CalendarEvent>> entry: events.entrySet()) {
-                ArrayList<CalendarEvent> eventsOnDay = entry.getValue();
-                LocalDate date = LocalDate.of(currentYear, currentMonth, currentDay);
-                ArrayList<Double> dayInfo = calculateTotalBudget(eventsOnDay);
-                double totalBudget = dayInfo.get(0);
-                int numberOfExpenses = dayInfo.get(3).intValue();
-                int numberOfIncome = dayInfo.get(4).intValue();
-                mDataset[datasetCounter] = eventsOnDay.get(0).getMonth() + "/" + eventsOnDay.get(0).getDay() + "/" + eventsOnDay.get(0).getYear() + ": " + eventsOnDay.size() + " events (" + numberOfExpenses + " expenses, " + numberOfIncome + " income)"  + " Budget: $" + totalBudget;
-                datasetCounter++;
+    public void updateRecyclerView() {
+        if (monthlyExpensesMapping != null) {
+            if (!monthlyExpensesMapping.isEmpty() && monthlyExpensesMapping.containsKey(currentMonth)) {
+                // Idea is to basically iterate through the hashmap of the current month, and displaying all of the LocalDate-ArrayList<CalendarEvent> pairs in the RecyclerView
+                // When the user swipes to a different month, check if the updated month has any existing calendar events
+                // If so, display them
+                HashMap<LocalDate, ArrayList<CalendarEvent>> events = monthlyExpensesMapping.get(currentMonth);
+                int datasetSize = getTotalEventsInMonth(events);
+                if (datasetSize > 0) {
+                    mDataset = new String[datasetSize];
+                    int datasetCounter = 0;
+                    for (Map.Entry<LocalDate, ArrayList<CalendarEvent>> entry : events.entrySet()) {
+                        ArrayList<CalendarEvent> eventsOnDay = entry.getValue();
+                        LocalDate date = LocalDate.of(currentYear, currentMonth, currentDay);
+                        ArrayList<Double> dayInfo = calculateTotalBudget(eventsOnDay);
+                        double totalBudget = dayInfo.get(0);
+                        int numberOfExpenses = dayInfo.get(3).intValue();
+                        int numberOfIncome = dayInfo.get(4).intValue();
+                        mDataset[datasetCounter] = eventsOnDay.get(0).getMonth() + "/" + eventsOnDay.get(0).getDay() + "/" + eventsOnDay.get(0).getYear() + ": " + eventsOnDay.size() + " events (" + numberOfExpenses + " expenses, " + numberOfIncome + " income)" + " Budget: $" + totalBudget;
+                        datasetCounter++;
+                    }
+                } else {
+                    mDataset = new String[1];
+                    mDataset[0] = "";
+                }
+            } else {
+                // If there are no events in this month, then we want to display an empty RecyclerView
+                mDataset = new String[1];
+                mDataset[0] = "";
             }
             mLayoutManager = new LinearLayoutManager(getActivity());
             mAdapter = new CustomAdapter(mDataset);
@@ -448,5 +470,4 @@ public class CalendarFragment extends Fragment{
             list.setAdapter(mAdapter);
         }
     }
-
 }
