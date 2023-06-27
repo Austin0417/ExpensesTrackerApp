@@ -6,7 +6,6 @@ import android.content.DialogInterface;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
 
@@ -72,7 +71,7 @@ public class EditEventDialog extends DialogFragment {
                                 getDialog().dismiss();
                                 CalendarEvent eventToDelete = events.get(currentSelectedIndex);
                                 events.remove(currentSelectedIndex);
-                                editEvent.deleteDate(eventToDelete);
+                                editEvent.deleteCalendarEvent(eventToDelete);
                             }
                         }).create();
                 dialog.show();
@@ -122,7 +121,7 @@ public class EditEventDialog extends DialogFragment {
                         // Interface method is called, which will be received as a callback in MainActivity's newAmount override method
                         // As arguments, we pass the event object that was modified, and the new amount
                         // In MainActivity's callback, we will use the database handle in MainActivity to make the corresponding query to update the target event
-                        editEvent.newAmount(selectedEvent, Double.parseDouble(amount.getText().toString()));
+                        editEvent.modifyCalendarEvent(selectedEvent, Double.parseDouble(amount.getText().toString()));
                     }
                 })
                 .setView(v)

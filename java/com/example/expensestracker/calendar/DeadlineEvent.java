@@ -14,4 +14,23 @@ public class DeadlineEvent extends CalendarEvent {
         id = UUID.randomUUID().hashCode();
     }
     public int getId() { return id; }
+
+    @Override
+    public boolean equals(Object o) {
+        DeadlineEvent deadline = (DeadlineEvent) o;
+        return getMonth() == deadline.getMonth() && getDay() == deadline.getDay() && getYear() == deadline.getYear() && getAmount() == deadline.getAmount() && getInformation().equals(deadline.getInformation());
+    }
+
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + getMonth();
+        result = prime * result + getDay();
+        result = prime * result + getYear();
+        long amountAsLong = Double.doubleToLongBits(getAmount());
+        result = prime * result + (int) (amountAsLong ^ (amountAsLong >>> 32));
+        result = prime * result + (getInformation() != null ? getInformation().hashCode() : 0);
+        return result;
+    }
 }

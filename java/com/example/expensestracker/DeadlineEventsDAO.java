@@ -26,4 +26,10 @@ public interface DeadlineEventsDAO {
 
     @Query("DELETE FROM deadline_events")
     public void clearDeadlineEvents();
+
+    @Query("UPDATE deadline_events SET amount=:amount, information=:newInformation WHERE month=:month AND day=:day AND year=:year AND information=:previousInformation")
+    public void updateDeadlineEvent(double amount, String newInformation, int month, int day, int year, String previousInformation);
+
+    @Query("DELETE FROM deadline_events WHERE amount=:amount AND information=:information AND month=:month AND day=:day AND year=:year")
+    public void deleteDeadlineEvent(double amount, String information, int month, int day, int year);
 }

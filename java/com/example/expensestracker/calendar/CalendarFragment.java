@@ -31,6 +31,7 @@ import com.example.expensestracker.MainActivity;
 import com.example.expensestracker.R;
 import com.example.expensestracker.dialogs.CalendarDialogFragment;
 import com.example.expensestracker.dialogs.ClearDialog;
+import com.example.expensestracker.dialogs.DeadlineDialog;
 import com.prolificinteractive.materialcalendarview.CalendarDay;
 import com.prolificinteractive.materialcalendarview.MaterialCalendarView;
 import com.prolificinteractive.materialcalendarview.OnDateSelectedListener;
@@ -60,6 +61,7 @@ public class CalendarFragment extends Fragment {
 
     // Reference to MainActivity's database
     ExpensesTrackerDatabase db;
+
     private String mParam1;
     private String mParam2;
 
@@ -323,21 +325,8 @@ public class CalendarFragment extends Fragment {
         deadlineBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                LayoutInflater inflater = LayoutInflater.from(getContext());
-                View dialogView = inflater.inflate(R.layout.deadline_info_layout, null);
-                AlertDialog dialog = new AlertDialog.Builder(getContext())
-                        .setTitle("Deadline Information")
-                        .setView(dialogView)
-                        .setPositiveButton("OK", new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-                                dialog.dismiss();
-                            }
-                        })
-                        .create();
-                TextView deadlineText = dialogView.findViewById(R.id.deadlineText);
-                deadlineText.setText(displayDeadlines(deadlines));
-                dialog.show();
+                DeadlineDialog dialog = new DeadlineDialog(deadlines);
+                dialog.show(getParentFragmentManager(), "Deadlines");
             }
         });
         calendar.setOnDateChangedListener(new OnDateSelectedListener() {

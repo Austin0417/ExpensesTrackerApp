@@ -34,7 +34,7 @@ public class CustomAdapter extends RecyclerView.Adapter<CustomAdapter.ViewHolder
                     int month = Integer.parseInt(formattedDate[0]);
                     int day = Integer.parseInt(formattedDate[1]);
                     int year = Integer.parseInt(formattedDate[2]);
-                    eventPasser.sendDate(month, year, day);
+                    eventPasser.sendCalendarEventDate(month, year, day);
                 }
             });
         }

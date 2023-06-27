@@ -8,12 +8,13 @@
 
     <TextView
         android:id="@+id/dashboardLabel"
-        android:layout_width="161dp"
-        android:layout_height="0dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
         android:layout_marginTop="27dp"
         android:layout_marginBottom="267dp"
         android:text="This Month's Overview"
+        android:textSize="22sp"
         app:layout_constraintBottom_toTopOf="@+id/addBtn"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
@@ -69,6 +70,7 @@
         android:layout_marginEnd="19dp"
         android:layout_marginBottom="13dp"
         android:text="Expenses: $0\nIncome: $0"
+        android:textSize="19sp"
         app:layout_constraintBottom_toTopOf="@+id/addBtn"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"

@@ -47,10 +47,18 @@ public class CalendarEvent {
         }
     }
     public double getAmount() {
-        if (this instanceof ExpensesEvent) {
+        if (this instanceof ExpensesEvent || this instanceof DeadlineEvent) {
             return getExpenses();
         } else {
             return getIncome();
+        }
+    }
+
+    public void setAmount(double amount) {
+        if (this instanceof ExpensesEvent || this instanceof DeadlineEvent) {
+            setExpenses(amount);
+        } else {
+            setIncome(amount);
         }
     }
 

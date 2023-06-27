@@ -44,6 +44,8 @@ import com.example.expensestracker.calendar.DeadlineEvent;
 import com.example.expensestracker.calendar.EditEvent;
 import com.example.expensestracker.calendar.ExpensesEvent;
 import com.example.expensestracker.calendar.IncomeEvent;
+import com.example.expensestracker.dialogs.DeadlineDialog;
+import com.example.expensestracker.dialogs.EditDeadlineDialog;
 import com.example.expensestracker.dialogs.EditEventDialog;
 import com.example.expensestracker.monthlyinfo.MonthlyInfoEntity;
 import com.example.expensestracker.monthlyinfo.MonthlyInfoFragment;
@@ -62,6 +64,7 @@ import java.util.Map;
 
 public class MainActivity extends AppCompatActivity implements FragmentManager.OnBackStackChangedListener, PassMonthlyData, CalendarDataPass, EditEvent {
     private static final int NOTIFICATION_STATUS_CODE = 1;
+
     // UI Elements of the main page
     FrameLayout addMonthlyInfoFragment;
     private Button addBtn;
@@ -69,20 +72,26 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     private FragmentManager manager;
     private TextView overview;
     private TextView dashboardLabel;
+
     // Unique notification ID for sending notifications
     private int notificationId = 1;
+
     // Number of deadlines the user has added, obtained from the size of DeadlineEvent ArrayList
     private int deadlineCount = 0;
+
     // User initialized expenses, income, and budget, which is calculated from subtracting expenses from income
     private double income = 0;
     private double expenses = 0;
     private double budget = 0;
+
     // Total net gain from all calendar events for both expense and income
     private double netExpenseFromCalendar = 0;
     private double netIncomeFromCalendar = 0;
-    // The net gain from calendar events if the user last added any new events
+
+    // The additional expense/income gain from calendar events if the user last added any new events
     private double additionalExpensesFromCalendar = 0;
     private double additionalIncomeFromCalendar = 0;
+
     private MonthlyInfoFragment monthlyInfo = new MonthlyInfoFragment();
     // Data structs for storing all user added events in the current month
     // Nested Hashmap<LocalDate, ArrayList<CalendarEvent>> to support multiple events on a single day
@@ -96,6 +105,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     private AlarmManager alarmManager;
 
     private CalendarFragment calendar;
+    private DeadlineDialog deadlineDialog;
 
     private Observer<List<CalendarEventsEntity>> observer;
     private LiveData<List<CalendarEventsEntity>> calendarEvents;
@@ -171,6 +181,11 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         retrieveCalendarEventsFromDatabase();
 
     }
+
+    public void setDeadlineDialog(DeadlineDialog dialog) {
+        deadlineDialog = dialog;
+    }
+
     // Grabs monthly expense and income value from previous state
     public void retrieveMonthlyInfoFromDatabase() {
         MonthlyInfoDAO monthlyInfoDAO = new MonthlyInfoDAO_Impl(db);
@@ -214,7 +229,8 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
                         String information = deadlineEventsEntities.get(i).information;
                         deadlines.add(new DeadlineEvent(expense, 0, date, information));
                     }
-                    overview.setText(String.join("", generateUpdatedText(expenses, income, budget, deadlines.size())));
+                    deadlineCount = deadlines.size();
+                    overview.setText(String.join("", generateUpdatedText(expenses, income, budget, deadlineCount)));
                 }
             }
         });
@@ -345,7 +361,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     }
     @Override
     @SuppressLint("NewAPI")
-    public void sendDate(int month, int year, int day) {
+    public void sendCalendarEventDate(int month, int year, int day) {
         Log.i("Send Date", month + "/" + day + "/" + year);
         HashMap<LocalDate, ArrayList<CalendarEvent>> currentMonthEvents = monthlyMapping.get(month);
         ArrayList<CalendarEvent> events = currentMonthEvents.get(LocalDate.of(year, month, day));
@@ -353,8 +369,21 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         dialog.show(getSupportFragmentManager(), "Edit Event");
     }
 
+    @SuppressLint("NewAPI")
     @Override
-    public void newAmount(CalendarEvent targetEvent, double amount) {
+    public void sendDeadlineEventDate(double amount, String information, int month, int year, int day) {
+        DeadlineEvent targetDeadline = new DeadlineEvent(amount, 0, LocalDate.of(year, month, day), information);
+        for (int i = 0; i < deadlines.size(); i++) {
+            if (deadlines.get(i).equals(targetDeadline)) {
+                Log.i("Edit Deadline", "Target deadline found!");
+                EditDeadlineDialog dialog = new EditDeadlineDialog(i, deadlines.get(i));
+                dialog.show(getSupportFragmentManager(), "Edit Deadline");
+            }
+        }
+    }
+
+    @Override
+    public void modifyCalendarEvent(CalendarEvent targetEvent, double amount) {
         Log.i("New Amount", targetEvent.getMonth() + "/" + targetEvent.getDay() + "/" + targetEvent.getYear() + ": $" + amount);
         // This simply updates the RecyclerView to display the new amount set by the user
         if (calendar != null) {
@@ -376,7 +405,23 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     }
 
     @Override
-    public void deleteDate(CalendarEvent selectedEvent) {
+    public void modifyDeadlineEvent(DeadlineEvent targetDeadline, String previousInformation) {
+        if (deadlineDialog != null) {
+            deadlineDialog.initializeDeadlinesView();
+        }
+        AsyncTask.execute(new Runnable() {
+            @Override
+            public void run() {
+                DeadlineEventsDAO dao = new DeadlineEventsDAO_Impl(db);
+                dao.updateDeadlineEvent(targetDeadline.getAmount(), targetDeadline.getInformation(), targetDeadline.getMonth(), targetDeadline.getDay(), targetDeadline.getYear(), previousInformation);
+                Log.i("Deadline Update", "Success");
+            }
+        });
+    }
+
+
+    @Override
+    public void deleteCalendarEvent(CalendarEvent selectedEvent) {
         if (calendar != null) {
             calendar.updateRecyclerView();
         }
@@ -392,6 +437,20 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
             }
         });
     }
+
+    @Override
+    public void deleteDeadlineEvent(int index, DeadlineEvent targetDeadline) {
+        // TODO Remove alarm set by the deadline that is going to be removed
+        deadlines.remove(index);
+        AsyncTask.execute(new Runnable() {
+            @Override
+            public void run() {
+                DeadlineEventsDAO dao = new DeadlineEventsDAO_Impl(db);
+                dao.deleteDeadlineEvent(targetDeadline.getAmount(), targetDeadline.getInformation(), targetDeadline.getMonth(), targetDeadline.getDay(), targetDeadline.getYear());
+            }
+        });
+    }
+
 
     // We iterate through the hashmap entry for the current month, and find the sum of all of the expenses and income that the user added for the current month
     // Update the information displayed on the main page accordingly
@@ -434,8 +493,8 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
             netIncomeFromCalendar = totalAdditionalMonthlyIncome;
             budget += Math.round((additionalIncomeFromCalendar - additionalExpensesFromCalendar) * 100.0) / 100.0;
             Log.i("New Budget", String.valueOf(budget));
-            overview.setText(String.join("",generateUpdatedText(expenses, income, budget, deadlineCount)));
         }
+        overview.setText(String.join("",generateUpdatedText(expenses, income, budget, deadlineCount)));
     }
 
 

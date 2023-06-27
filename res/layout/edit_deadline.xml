@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center_horizontal">
+
+    <EditText
+        android:id="@+id/deadlineInfoText"
+        android:layout_width="match_parent"
+        android:layout_height="61dp"
+        android:inputType="text" />
+
+    <EditText
+        android:id="@+id/deadlineAmountText"
+        android:layout_width="match_parent"
+        android:layout_height="81dp"
+        android:inputType="numberDecimal" />
+
+    <Button
+        android:id="@+id/deleteDeadlineBtn"
+        android:layout_width="194dp"
+        android:layout_height="wrap_content"
+        android:text="Delete" />
+</LinearLayout>
