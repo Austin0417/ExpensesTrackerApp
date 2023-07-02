@@ -4,11 +4,11 @@ import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.DialogInterface;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.TextView;
 
 import androidx.fragment.app.DialogFragment;
 
@@ -16,20 +16,29 @@ import com.example.expensestracker.R;
 import com.example.expensestracker.calendar.DeadlineEvent;
 import com.example.expensestracker.calendar.EditEvent;
 
+import java.util.ArrayList;
+
 public class EditDeadlineDialog extends DialogFragment {
+    // Reference to the user-selected deadline
+    private final ArrayList<DeadlineEvent> deadlines;
     private final DeadlineEvent targetDeadline;
+
+    // Index of the selected deadline back in MainActivity's DeadlineEvent ArrayList
     private final int deadlineIndex;
-    private final String previousInformation;
+
+    // Previous information of the selected deadline (before the user has made any changes to the information)
+    // We store this for usage in a potential query later on
+
     private EditText deadlineInfoText;
     private EditText deadlineAmountText;
     private Button deleteBtn;
     private EditEvent editEvent;
 
 
-    public EditDeadlineDialog(int index, DeadlineEvent targetDeadline) {
-        this.targetDeadline = targetDeadline;
+    public EditDeadlineDialog(int index, ArrayList<DeadlineEvent> deadlines) {
+        this.deadlines = deadlines;
         deadlineIndex = index;
-        previousInformation = targetDeadline.getInformation();
+        targetDeadline = deadlines.get(index);
     }
 
     @Override
@@ -40,6 +49,7 @@ public class EditDeadlineDialog extends DialogFragment {
         deleteBtn = v.findViewById(R.id.deleteDeadlineBtn);
         editEvent = (EditEvent) getContext();
 
+        // Set the info and amount field to their initial values (e.g. the deadline amount and information before the user has changed anything)
         deadlineInfoText.setText(targetDeadline.getInformation());
         deadlineAmountText.setText(String.valueOf(targetDeadline.getAmount()));
 
@@ -58,7 +68,9 @@ public class EditDeadlineDialog extends DialogFragment {
                         .setPositiveButton("Confirm", new DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(DialogInterface dialog, int which) {
+                                // Callback to deleteDeadlineEvent in MainActivity
                                 editEvent.deleteDeadlineEvent(deadlineIndex, targetDeadline);
+
                                 getDialog().dismiss();
                                 dismiss();
                             }
@@ -79,9 +91,14 @@ public class EditDeadlineDialog extends DialogFragment {
                 .setPositiveButton("Confirm", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
+                        double previousAmount = targetDeadline.getAmount();
+                        String previousInformation = targetDeadline.getInformation();
                         targetDeadline.setAmount(Double.parseDouble(deadlineAmountText.getText().toString()));
                         targetDeadline.setInformation(deadlineInfoText.getText().toString());
-                        editEvent.modifyDeadlineEvent(targetDeadline, previousInformation);
+                        Log.i("Update", "New amount: " + targetDeadline.getAmount() + " New info: " + targetDeadline.getInformation());
+
+                        // Callback to MainActivity's modifyDeadlineEvent implementation
+                        editEvent.modifyDeadlineEvent(targetDeadline, previousInformation, previousAmount, deadlineIndex);
                     }
                 }).create();
     }

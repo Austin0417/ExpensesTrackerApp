@@ -18,19 +18,24 @@ import com.example.expensestracker.calendar.DeadlineViewAdapter;
 
 import java.util.ArrayList;
 
+// Dialog that is shown when the user has clicked the "Deadlines" button located in the CalendarFragment layout
 public class DeadlineDialog extends DialogFragment {
     private RecyclerView recyclerView;
     private DeadlineViewAdapter mAdapter;
     private RecyclerView.LayoutManager mLayoutManager;
     private ArrayList<DeadlineEvent> deadlines;
+    MainActivity mainActivity;
 
+    // Deadlines ArrayList passed from CalendarFragment
     public DeadlineDialog(ArrayList<DeadlineEvent> deadlines) {
         this.deadlines = deadlines;
     }
+    public void setDeadlines(ArrayList<DeadlineEvent> deadlines) { this.deadlines = deadlines;}
 
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
-        ((MainActivity) getActivity()).setDeadlineDialog(this);
+        mainActivity = (MainActivity) getActivity();
+        mainActivity.setDeadlineDialog(this);
         View v = LayoutInflater.from(getContext()).inflate(R.layout.deadline_info_layout, null, false);
         recyclerView = v.findViewById(R.id.deadlineRecyclerView);
         initializeDeadlinesView();
@@ -64,4 +69,10 @@ public class DeadlineDialog extends DialogFragment {
             mAdapter.notifyDataSetChanged();
         }
     }
+    @Override
+    public void onDismiss(DialogInterface dialog) {
+        super.onDismiss(dialog);
+        mainActivity.setDeadlineDialog(null);
+    }
+
 }

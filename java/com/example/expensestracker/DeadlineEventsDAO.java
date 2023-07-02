@@ -22,7 +22,7 @@ public interface DeadlineEventsDAO {
     void update(DeadlineEventsEntity deadlineEvent);
 
     @Query("SELECT * FROM deadline_events")
-    LiveData<List<DeadlineEventsEntity>> getDeadlineEvents();
+    List<DeadlineEventsEntity> getDeadlineEvents();
 
     @Query("DELETE FROM deadline_events")
     public void clearDeadlineEvents();
@@ -32,4 +32,7 @@ public interface DeadlineEventsDAO {
 
     @Query("DELETE FROM deadline_events WHERE amount=:amount AND information=:information AND month=:month AND day=:day AND year=:year")
     public void deleteDeadlineEvent(double amount, String information, int month, int day, int year);
+
+    @Query("SELECT `key` FROM deadline_events WHERE amount=:amount AND information=:information AND month=:month AND day=:day AND year=:year")
+    public int getUUID(double amount, String information, int month, int day, int year);
 }

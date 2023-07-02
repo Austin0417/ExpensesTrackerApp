@@ -9,6 +9,7 @@ import android.util.SparseBooleanArray;
 import androidx.fragment.app.DialogFragment;
 
 public class ClearDialog extends DialogFragment {
+    // Boolean array representing the status of the calendar and deadline checkboxes (index 0 and 1 respectively)
     private boolean[] selection = {false, false};
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
@@ -28,12 +29,16 @@ public class ClearDialog extends DialogFragment {
                     @Override
                     public void onClick(DialogInterface dialog, int which, boolean isChecked) {
                         if (which == 0 && isChecked) {
+                            // If the Calendar checkbox is clicked, and current status is checked
                             selection[0] = true;
                         } else if (which == 1 && isChecked) {
+                            // If the deadline checkbox is clicked, and current status is checked
                             selection[1] = true;
                         } else if (which == 0 && !isChecked) {
+                            // If the Calendar checkbox is clicked, and current status is not checked
                             selection[0] = false;
                         } else if (which == 1 && !isChecked) {
+                            // If the deadline checkbox is clicked, and current status is not checked
                             selection[1] = false;
                         }
                     }

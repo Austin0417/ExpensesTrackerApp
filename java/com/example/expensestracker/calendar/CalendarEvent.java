@@ -7,9 +7,16 @@ import java.util.Calendar;
 import java.util.Date;
 
 public class CalendarEvent {
+    // User input information for the CalendarEvent
     private String information;
+
+    // User input expenses for the CalendarEvent
     private double expenses;
+
+    // User input income for the CalendarEvent
     private double income;
+
+    // Date of the CalendarEvent
     private LocalDate date;
     boolean isMarked = false;
 

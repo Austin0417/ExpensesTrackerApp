@@ -11,6 +11,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.expensestracker.R;
 
+// Overridden RecyclerView adapter for the RecyclerView within DeadlineDialog
 public class DeadlineViewAdapter extends RecyclerView.Adapter<DeadlineViewAdapter.ViewHolder>{
     private String[] localDataset;
     public static class ViewHolder extends RecyclerView.ViewHolder {
@@ -21,6 +22,9 @@ public class DeadlineViewAdapter extends RecyclerView.Adapter<DeadlineViewAdapte
             textView = view.findViewById(R.id.deadlineText);
             editEvent = (EditEvent) view.getContext();
             view.setOnClickListener(new View.OnClickListener() {
+                // On click listener for all TextViews within the RecyclerView
+                // When a user selects a specific TextView, which represents an individual deadline, obtain the raw text within that TextView
+                // Parse the string data from the TextView to obtain the month, day, year, amount, and information
                 @Override
                 public void onClick(View v) {
                     String deadlineText = textView.getText().toString();
@@ -33,6 +37,8 @@ public class DeadlineViewAdapter extends RecyclerView.Adapter<DeadlineViewAdapte
                     int month = Integer.parseInt(dateSubstring[0]);
                     int day = Integer.parseInt(dateSubstring[1]);
                     int year = Integer.parseInt(dateSubstring[2]);
+
+                    // Callback to MainActivity's sendDeadlineEventDate, we send the parsed information back to MainActivity's implemented callback
                     editEvent.sendDeadlineEventDate(amount, information, month, year, day);
                 }
             });
@@ -47,6 +53,7 @@ public class DeadlineViewAdapter extends RecyclerView.Adapter<DeadlineViewAdapte
     @NonNull
     @Override
     public DeadlineViewAdapter.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        // Rendering the layout for each specific View element in the RecyclerView. In this case, it is a single TextView element
         View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.deadline_info_text_layout, parent, false);
         return new ViewHolder(view);
     }

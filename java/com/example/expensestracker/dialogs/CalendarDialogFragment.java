@@ -59,6 +59,7 @@ public class CalendarDialogFragment extends DialogFragment {
         deadlineText = dialogView.findViewById(R.id.deadlineInput);
         deadlineDescription = dialogView.findViewById(R.id.deadlineInfo);
 
+        // Initial state when the CalendarDialog is created, we hide everything except the list of choices
         deadlineDescription.setVisibility(View.GONE);
         additionalIncome.setVisibility(View.GONE);
         additionalExpenses.setVisibility(View.GONE);
@@ -108,20 +109,24 @@ public class CalendarDialogFragment extends DialogFragment {
             }
         }).setSingleChoiceItems(choices, checkedItem, new DialogInterface.OnClickListener() {
             @Override
+            // Choices for creating Expense, Income, or Deadline event
             public void onClick(DialogInterface dialog, int which) {
                 if (which == 0) {
+                    // If the user has selected ExpenseEvent
                     additionalExpenses.setVisibility(View.VISIBLE);
                     additionalIncome.setVisibility(View.GONE);
                     deadlineText.setVisibility(View.GONE);
                     deadlineDescription.setVisibility(View.GONE);
                     type = "expenses";
                 } else if (which == 1) {
+                    // If the user has selected IncomeEvent
                     additionalIncome.setVisibility(View.VISIBLE);
                     additionalExpenses.setVisibility(View.GONE);
                     deadlineText.setVisibility(View.GONE);
                     deadlineDescription.setVisibility(View.GONE);
                     type = "income";
                 } else {
+                    // The user has selected DeadlineEvent
                     deadlineText.setVisibility(View.VISIBLE);
                     deadlineDescription.setVisibility(View.VISIBLE);
                     additionalIncome.setVisibility(View.GONE);
