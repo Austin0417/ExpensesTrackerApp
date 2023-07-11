@@ -21,7 +21,7 @@ public interface CalendarEventsDAO {
     void update(CalendarEventsEntity calendarEvent);
 
     @Query("SELECT * FROM calendar_events")
-    LiveData<List<CalendarEventsEntity>> getCalendarEvents();
+    List<CalendarEventsEntity> getCalendarEvents();
 
     @Query("DELETE FROM calendar_events")
     public void clearCalendarEvents();

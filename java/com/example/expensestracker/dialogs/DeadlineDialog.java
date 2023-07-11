@@ -13,6 +13,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.expensestracker.MainActivity;
 import com.example.expensestracker.R;
+import com.example.expensestracker.calendar.CalendarEvent;
 import com.example.expensestracker.calendar.DeadlineEvent;
 import com.example.expensestracker.calendar.DeadlineViewAdapter;
 
@@ -34,6 +35,7 @@ public class DeadlineDialog extends DialogFragment {
 
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
+        // Initializing reference back to the MainActivity instance, and calling its setDeadlineDialog method to set this DeadlineDialog
         mainActivity = (MainActivity) getActivity();
         mainActivity.setDeadlineDialog(this);
         View v = LayoutInflater.from(getContext()).inflate(R.layout.deadline_info_layout, null, false);
@@ -52,8 +54,20 @@ public class DeadlineDialog extends DialogFragment {
                 .create();
     }
     public void populateDataset(String[] dataset) {
+        String hourType;
         for (int i = 0; i < deadlines.size(); i++) {
-            dataset[i] = deadlines.get(i).getMonth() + "/" + deadlines.get(i).getDay() + "/" + deadlines.get(i).getYear() + ": $" + deadlines.get(i).getAmount() + " - " + deadlines.get(i).getInformation();
+            if (deadlines.get(i).getAmOrPm() == CalendarEvent.AM) {
+                hourType = "AM";
+            } else {
+                hourType = "PM";
+            }
+            dataset[i] = deadlines.get(i).getMonth() +
+                    "/" + deadlines.get(i).getDay() +
+                    "/" + deadlines.get(i).getYear() +
+                    " (" + deadlines.get(i).getHour() +
+                    ":" + deadlines.get(i).getMinute() + " " + hourType +
+                    "): $" + deadlines.get(i).getAmount() +
+                    " - " + deadlines.get(i).getInformation();
         }
     }
     public void initializeDeadlinesView() {

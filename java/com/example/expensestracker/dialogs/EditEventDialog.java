@@ -116,7 +116,7 @@ public class EditEventDialog extends DialogFragment {
                         // Call the updateAmount method on the object to update the object in memory, however we still need to translate this change to the local database as well
                         CalendarEvent selectedEvent = events.get(currentSelectedIndex);
                         double newAmount = Double.parseDouble(amount.getText().toString());
-                        selectedEvent.updateAmount(newAmount);
+                        selectedEvent.setAmount(newAmount);
 
                         // Interface method is called, which will be received as a callback in MainActivity's newAmount override method
                         // As arguments, we pass the event object that was modified, and the new amount

@@ -40,6 +40,7 @@ import com.prolificinteractive.materialcalendarview.OnMonthChangedListener;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -54,8 +55,7 @@ public class CalendarFragment extends Fragment {
     // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
     private static final String ARG_PARAM1 = "param1";
     private static final String ARG_PARAM2 = "param2";
-    // Remove this later
-    public static final String SENDER_ID = "1056081938816";
+
 
     // TODO: Rename and change types of parameters
 
@@ -79,8 +79,13 @@ public class CalendarFragment extends Fragment {
     // Private variables to keep track of the currently selected month, year and day in the calendar
     private int currentMonth, currentYear, currentDay;
 
+    // Boolean array data member to keep track of the current month's up to date status. 12 indexes each representing a month
+    private boolean[] calendarIsUpToDate = new boolean[12];
+
     // Main data structure that will be used to store the mappings of months (key) to day-events (value)
     private HashMap<Integer, HashMap<LocalDate, ArrayList<CalendarEvent>>> monthlyExpensesMapping;
+
+    private ArrayList<LocalDate> dates = new ArrayList<LocalDate>();
 
     // Simple ArrayList that will keep track of all deadlines, specific date of the deadline is not important
     private ArrayList<DeadlineEvent> deadlines;
@@ -108,6 +113,8 @@ public class CalendarFragment extends Fragment {
         fragment.setArguments(args);
         return fragment;
     }
+
+    public CalendarDataPass getCalendarDataPasser() { return dataPasser; }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -146,6 +153,7 @@ public class CalendarFragment extends Fragment {
                 // Either data or clearSelections must be null, only one of these arrays can be non-null at any given onFragmentResult callback
                 // If data is not null, this indicates the user has created an event (either Expense or Income) on the Calendar. Data will contain the relevant values to construct the object
                 // If clearSelections is not null, this indicates the user has clicked clearBtn.
+
                 if (clearSelections != null) {
                     // If the user has checked both Calendar and Deadline boxes, we clear all CalendarEvents for the current month, and ALL deadlines
                     // Element 0 of clearSelections = calendar checkbox, Element 1 of clearSelections = deadline checkbox
@@ -161,6 +169,7 @@ public class CalendarFragment extends Fragment {
                             public void run() {
                                 CalendarEventsDAO calendarDAO = db.calendarEventsDAO();
                                 DeadlineEventsDAO deadlineDAO = db.deadlineEventsDAO();
+                                ((MainActivity) getContext()).clearDeadlineAlarms(deadlineDAO);
                                 calendarDAO.clearCalendarEvents();
                                 deadlineDAO.clearDeadlineEvents();
                             }
@@ -192,16 +201,29 @@ public class CalendarFragment extends Fragment {
                         });
                     }
                 }
+
                 // User has created a CalendarEvent, initialize objects accordingly
                 if (data != null) {
+                    int deadline_time_selections[] = result.getIntArray("time_selection");
                     LocalDate date = LocalDate.of(currentYear, currentMonth, currentDay);
 
                     // Deadline Event
                     if (deadlineDescription != null) {
                         Log.i("Deadline Description", deadlineDescription);
                         DeadlineEvent deadline = new DeadlineEvent(data[0], data[1], date, deadlineDescription);
+                        if (deadline_time_selections != null) {
+                            // Set the hour, hour type, and minute for the deadline
+                            Log.i("Calendar Fragment", "Received hour selection=" + deadline_time_selections[0]
+                                    + ". Minute=" + deadline_time_selections[2] +
+                                    "AM/PM=" + deadline_time_selections[1]);
+                            deadline.setHour(deadline_time_selections[0]);
+                            deadline.setAmOrPm(deadline_time_selections[1]);
+                            deadline.setMinute(deadline_time_selections[2]);
+                        }
+
                         Calendar calendar = Calendar.getInstance();
                         calendar.set(deadline.getYear(), deadline.getMonth() - 1, deadline.getDay());
+
                         // Check for the case where the user attempts to add a deadline for a past date
                         if (calendar.getTimeInMillis() - System.currentTimeMillis() < 0) {
                             Toast.makeText(getActivity(), "Cannot set a deadline in the past!", Toast.LENGTH_LONG).show();
@@ -209,10 +231,12 @@ public class CalendarFragment extends Fragment {
                         }
                         deadlines.add(deadline);
                         Toast.makeText(getActivity(), "Successfully set deadline for " + deadline.getMonth() + "/" + deadline.getDay() + "/" + deadline.getYear(), Toast.LENGTH_LONG).show();
+
                         // After every calendar and deadline event addition, we have to update the database accordingly
                         AsyncTask.execute(new Runnable() {
                             @Override
                             public void run() {
+                                // Since the autogenerated id key is used in setAlarmForDeadline, we have to make sure it is called after the DeadlineEvent has been inserted into the db
                                 DeadlineEventsDAO deadlineDAO = db.deadlineEventsDAO();
                                 DeadlineEventsEntity entity = new DeadlineEventsEntity();
                                 entity.information = deadlineDescription;
@@ -220,6 +244,9 @@ public class CalendarFragment extends Fragment {
                                 entity.day = date.getDayOfMonth();
                                 entity.month = date.getMonthValue();
                                 entity.year = date.getYear();
+                                entity.hour = deadline.getHour();
+                                entity.hour_type = deadline.getAmOrPm();
+                                entity.minute = deadline.getMinute();
                                 deadlineDAO.insert(entity);
                                 Log.i("Database insertion", "Inserted deadline!");
                                 parentActivity.setAlarmForDeadline(deadline);
@@ -233,9 +260,17 @@ public class CalendarFragment extends Fragment {
                         // There are already some events in the current month
                         if (monthlyExpensesMapping.containsKey(currentMonth)) {
                             HashMap<LocalDate, ArrayList<CalendarEvent>> dayMapping = monthlyExpensesMapping.get(currentMonth);
+
                             // There are already some events associated with this particular day
                             if (dayMapping.containsKey(date)) {
-                                monthlyExpensesMapping.get(currentMonth).get(date).add(new ExpensesEvent(data[0], data[1], date));
+                                ArrayList<CalendarEvent> eventsOnDay = monthlyExpensesMapping.get(currentMonth).get(date);
+                                if (eventsOnDay.size() >= 10) {
+                                    // If the user has 10 or more events on a particular date, do not add events any further
+                                    Toast.makeText(getContext(), "Event limit for a particular day has been reached!", Toast.LENGTH_LONG).show();
+                                    return;
+                                }
+                                eventsOnDay.add(new ExpensesEvent(data[0], data[1], date));
+
                             // First event associated with this particular day, so we have to initialize the array in the nested hashmap
                             } else {
                                 ArrayList<CalendarEvent> events = new ArrayList<CalendarEvent>();
@@ -243,6 +278,7 @@ public class CalendarFragment extends Fragment {
                                 dayMapping.put(date, events);
                                 monthlyExpensesMapping.put(currentMonth, dayMapping);
                             }
+
                         // No events in the current month yet, initialize the hashmaps and array
                         } else {
                             HashMap<LocalDate, ArrayList<CalendarEvent>> eventsOnDay = new HashMap<LocalDate, ArrayList<CalendarEvent>>();
@@ -273,14 +309,23 @@ public class CalendarFragment extends Fragment {
                         if (monthlyExpensesMapping.containsKey(currentMonth)) {
                             HashMap<LocalDate, ArrayList<CalendarEvent>> dayMapping = monthlyExpensesMapping.get(currentMonth);
                             if (dayMapping.containsKey(date)) {
-                                monthlyExpensesMapping.get(currentMonth).get(date).add(new IncomeEvent(data[0], data[1], date));
+                                // If there is already a CalendarEvent on that date
+                                ArrayList<CalendarEvent> eventsOnDay = monthlyExpensesMapping.get(currentMonth).get(date);
+                                if (eventsOnDay.size() >= 10) {
+                                    // If the user already has 10 or more events on a particular date, do not add events any further
+                                    Toast.makeText(getContext(), "Event limit for a particular day has been reached!", Toast.LENGTH_LONG).show();
+                                    return;
+                                }
+                                eventsOnDay.add(new IncomeEvent(data[0], data[1], date));
                             } else {
+                                // If not, create a new ArrayList for that date and insert the newly created event into the ArrayList
                                 ArrayList<CalendarEvent> events = new ArrayList<CalendarEvent>();
                                 events.add(new IncomeEvent(data[0], data[1], date));
                                 dayMapping.put(date, events);
                                 monthlyExpensesMapping.put(currentMonth, dayMapping);
                             }
                         } else {
+                            // If this IncomeEvent is the first in the month so far
                             HashMap<LocalDate, ArrayList<CalendarEvent>> eventsOnDay = new HashMap<LocalDate, ArrayList<CalendarEvent>>();
                             ArrayList<CalendarEvent> events = new ArrayList<CalendarEvent>();
                             events.add(new IncomeEvent(data[0], data[1], date));
@@ -306,10 +351,13 @@ public class CalendarFragment extends Fragment {
 
                     }
                 }
+
                 // After every onFragmentResult, call the onCalendarDataPassed callback in MainActivity
                 // Effectively, this is updating the monthlyExpensesMapping and deadlines data structures to equal the CalendarFragment, syncing the values between the two classes
+                calendarIsUpToDate[currentMonth - 1] = false;
                 updateRecyclerView();
                 dataPasser.onCalendarDataPassed(monthlyExpensesMapping, deadlines);
+
             }
         });
         currentMonth = Calendar.getInstance().get(Calendar.MONTH) + 1;
@@ -331,6 +379,8 @@ public class CalendarFragment extends Fragment {
 
         // Setting the initial highlighted date to the current date
         calendar.setDateSelected(CalendarDay.today(), true);
+        calendar.setHeaderTextAppearance(R.style.CalendarWidgetHeader);
+        calendar.setDateTextAppearance(R.style.CalendarWidgetText);
 
         updateRecyclerView();
 
@@ -439,22 +489,7 @@ public class CalendarFragment extends Fragment {
         res.add((double)deadlineEvents);
         return res;
     }
-    public static int getTotalEventsInMonth(HashMap<LocalDate, ArrayList<CalendarEvent>> events) {
-        int size = 0;
-        for (Map.Entry<LocalDate, ArrayList<CalendarEvent>> entry: events.entrySet()) {
-            size += entry.getValue().size();
-        }
-        return size;
-    }
 
-    // Displaying deadlines as text information in the TextView for when deadlinesBtn is clicked
-    public static String displayDeadlines(ArrayList<DeadlineEvent> deadlines) {
-        String res = "";
-        for (int i = 0; i < deadlines.size(); i++) {
-            res += deadlines.get(i).getMonth() + "/" + deadlines.get(i).getDay() + "/" + deadlines.get(i).getYear() + ": $" + deadlines.get(i).getExpenses() + " - " + deadlines.get(i).getInformation() + "\n";
-        }
-        return res;
-    }
 
     // Initializes and updates the RecyclerView that displays all calendar events
     @SuppressLint("NewApi")
@@ -465,21 +500,30 @@ public class CalendarFragment extends Fragment {
                 // When the user swipes to a different month, check if the updated month has any existing calendar events
                 // If so, display them
                 HashMap<LocalDate, ArrayList<CalendarEvent>> events = monthlyExpensesMapping.get(currentMonth);
-                int datasetSize = getTotalEventsInMonth(events);
+                int datasetSize = events.size();
 
                 // If the total number of events in the current month is greater than 0
                 if (datasetSize > 0) {
+                    // Obtain an ArrayList of all LocalDates in the month with an event, and then sort this ArrayList by LocalDate chronological order
+
+                    // If no insertions have been, don't sort the ArrayList of LocalDates.
+                    if (!calendarIsUpToDate[currentMonth - 1]) {
+                        dates = CalendarEvent.getDatesWithEvents(events);
+                        Collections.sort(dates);
+                        calendarIsUpToDate[currentMonth - 1] = true;
+                    }
                     mDataset = new String[datasetSize];
                     int datasetCounter = 0;
-                    for (Map.Entry<LocalDate, ArrayList<CalendarEvent>> entry : events.entrySet()) {
-                        ArrayList<CalendarEvent> eventsOnDay = entry.getValue();
-                        LocalDate date = LocalDate.of(currentYear, currentMonth, currentDay);
-                        ArrayList<Double> dayInfo = calculateTotalBudget(eventsOnDay);
-                        double totalBudget = dayInfo.get(0);
-                        int numberOfExpenses = dayInfo.get(3).intValue();
-                        int numberOfIncome = dayInfo.get(4).intValue();
-                        mDataset[datasetCounter] = eventsOnDay.get(0).getMonth() + "/" + eventsOnDay.get(0).getDay() + "/" + eventsOnDay.get(0).getYear() + ": " + eventsOnDay.size() + " events (" + numberOfExpenses + " expenses, " + numberOfIncome + " income)" + " Budget: $" + totalBudget;
-                        datasetCounter++;
+                    for (int i = 0; i < dates.size(); i++) {
+                        ArrayList<CalendarEvent> eventsOnDay = events.get(dates.get(i));
+                        if (!eventsOnDay.isEmpty()) {
+                            ArrayList<Double> dayInfo = calculateTotalBudget(eventsOnDay);
+                            double totalBudget = dayInfo.get(0);
+                            int numberOfExpenses = dayInfo.get(3).intValue();
+                            int numberOfIncome = dayInfo.get(4).intValue();
+                            mDataset[datasetCounter] = eventsOnDay.get(0).getMonth() + "/" + eventsOnDay.get(0).getDay() + "/" + eventsOnDay.get(0).getYear() + ": " + eventsOnDay.size() + " events (" + numberOfExpenses + " expenses, " + numberOfIncome + " income)" + " Budget: $" + totalBudget;
+                            datasetCounter++;
+                        }
                     }
                 // If there are no calendar events in the current month, display an empty RecyclerView list
                 } else {

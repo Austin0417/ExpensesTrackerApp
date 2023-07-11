@@ -89,7 +89,8 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     private double additionalExpensesFromCalendar = 0;
     private double additionalIncomeFromCalendar = 0;
 
-    private MonthlyInfoFragment monthlyInfo = new MonthlyInfoFragment();
+    // Boolean variables to keep track of the current fragment that is active, if any. This is used for the onBackPressed listener.
+    private boolean monthlyInfoFragmentActive, calendarEventFragmentActive;
 
     // Data structs for storing all user added events in the current month
     // Nested Hashmap<LocalDate, ArrayList<CalendarEvent>> to support multiple events on a single day
@@ -102,7 +103,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     // The id (key) is the integer value passed into the 'requestCode' argument of PendingIntent, and Intent (value) is the intent object used in the PendingIntent
     private HashMap<Integer, Intent> deadlineIntentMapping = new HashMap<Integer, Intent>();
 
-    boolean upToDate = true;
+    private boolean upToDate = true;
     private boolean notificationsEnabled = true;
     private ExpensesTrackerDatabase db;
     private AlarmManager alarmManager;
@@ -111,10 +112,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     // Allows us to call methods such as updating UI and syncing data from the MainActivity
     private CalendarFragment calendar;
     private DeadlineDialog deadlineDialog;
-
-    private Observer<List<CalendarEventsEntity>> observer;
-    private LiveData<List<CalendarEventsEntity>> calendarEvents;
-
+    private MonthlyInfoFragment monthlyInfo = new MonthlyInfoFragment();
 
 
     @Override
@@ -152,10 +150,11 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         addBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                calendarEvents.removeObserver(observer);
                 calendar = new CalendarFragment();
                 calendar.setDatabase(db);
                 hideMainUI();
+                calendarEventFragmentActive = true;
+                monthlyInfoFragmentActive = false;
                 FragmentTransaction transaction = manager.beginTransaction();
                 transaction.replace(R.id.calendarFragment, calendar);
                 transaction.addToBackStack("Calendar");
@@ -166,6 +165,8 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
             @Override
             public void onClick(View v) {
                 hideMainUI();
+                monthlyInfoFragmentActive = true;
+                calendarEventFragmentActive = false;
                 FragmentTransaction transaction = manager.beginTransaction();
                 transaction.replace(addMonthlyInfoFragment.getId(), monthlyInfo);
                 transaction.addToBackStack("Monthly Information");
@@ -181,16 +182,38 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         initializeDatabase();
     }
 
+    @Override
+    public void onBackPressed() {
+        super.onBackPressed();
+        if (monthlyInfoFragmentActive) {
+            monthlyInfoFragmentActive = false;
+            double expenses = monthlyInfo.getExpenses();
+            double income = monthlyInfo.getIncome();
+            if (expenses >= 0 && income >= 0) {
+                monthlyInfo.getMonthlyDataPasser().onDataPassed(monthlyInfo.getExpenses(), monthlyInfo.getIncome());
+            }
+            getSupportFragmentManager().popBackStack();
+            unhideMainUI();
+        } else if (calendarEventFragmentActive) {
+            calendarEventFragmentActive = false;
+            unhideMainUI();
+            sumEventsInCurrentMonth();
+            getSupportFragmentManager().popBackStack();
+        }
+    }
+
+
     public void initializeDatabase() {
         db = Room.databaseBuilder(getApplicationContext(), ExpensesTrackerDatabase.class, "ExpensesTracker").build();
         Log.i("Database creation", "Success!");
-        retrieveMonthlyInfoFromDatabase();
 
         // CountDownLatch for synchronization to ensure that retrieving deadlines from the database is completed first, before checking for pending DeadlineEvents in deletePassedDeadlines
-        CountDownLatch latch = new CountDownLatch(1);
+        CountDownLatch latch = new CountDownLatch(3);
         AsyncTask.execute(new Runnable() {
             @Override
             public void run() {
+                retrieveMonthlyInfoFromDatabase(latch);
+                retrieveCalendarEventsFromDatabase(latch);
                 retrieveDeadlinesFromDatabase(latch);
             }
         });
@@ -201,7 +224,6 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
             throw new RuntimeException(e);
         }
 
-        retrieveCalendarEventsFromDatabase();
         deletePassedDeadlines();
     }
 
@@ -210,25 +232,19 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     }
 
     // Grabs monthly expense and income value from previous state
-    public void retrieveMonthlyInfoFromDatabase() {
+    public void retrieveMonthlyInfoFromDatabase(CountDownLatch latch) {
         MonthlyInfoDAO monthlyInfoDAO = new MonthlyInfoDAO_Impl(db);
-        LiveData<List<MonthlyInfoEntity>> monthlyInfo = monthlyInfoDAO.getMonthlyInfo();
-        List<MonthlyInfoEntity> monthlyValues = monthlyInfo.getValue();
-        monthlyInfo.observe(this, new Observer<List<MonthlyInfoEntity>>() {
-            @Override
-            public void onChanged(List<MonthlyInfoEntity> monthlyInfoEntities) {
-                if (monthlyInfoEntities != null && !monthlyInfoEntities.isEmpty()) {
-                    Log.i("Monthly Info", "Fecthing saved data: Expenses = " + monthlyInfoEntities.get(0).expenses + " Income = " + monthlyInfoEntities.get(0).income);
-                    income = monthlyInfoEntities.get(0).income;
-                    expenses = monthlyInfoEntities.get(0).expenses;
-                    double additionalBudgetFromCalendar = Math.round((additionalIncomeFromCalendar - additionalExpensesFromCalendar) * 100.0) / 100.0;
-                    budget = (Math.round((income - expenses) * 100.0) / 100.0) + additionalBudgetFromCalendar;
-                    overview.setText(String.join("", generateUpdatedText(expenses, income, budget, deadlineCount)));
-                } else {
-                    Log.i("Monthly Info", "No valid data to fetch");
-                }
-            }
-        });
+        List<MonthlyInfoEntity> monthlyInfo = monthlyInfoDAO.getMonthlyInfo();
+        if (monthlyInfo != null && !monthlyInfo.isEmpty()) {
+            Log.i("Monthly Info", "Fecthing saved data: Expenses = " + monthlyInfo.get(0).expenses + " Income = " + monthlyInfo.get(0).income);
+            income = monthlyInfo.get(0).income;
+            expenses = monthlyInfo.get(0).expenses;
+            double additionalBudgetFromCalendar = Math.round((additionalIncomeFromCalendar - additionalExpensesFromCalendar) * 100.0) / 100.0;
+            budget = (Math.round((income - expenses) * 100.0) / 100.0) + additionalBudgetFromCalendar;
+        } else {
+            Log.i("Monthly Info", "No valid info to fetch!");
+        }
+        latch.countDown();
     }
     // Grabs all deadline events from previous state
     @SuppressLint("NewAPI")
@@ -243,10 +259,17 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
                 int month = deadlinesInDatabase.get(i).month;
                 int year = deadlinesInDatabase.get(i).year;
                 int id = deadlinesInDatabase.get(i).key;
+                int hour = deadlinesInDatabase.get(i).hour;
+                int hour_type = deadlinesInDatabase.get(i).hour_type;
+                int minute = deadlinesInDatabase.get(i).minute;
                 LocalDate date = LocalDate.of(year, month, day);
                 double expense = deadlinesInDatabase.get(i).expense;
                 String information = deadlinesInDatabase.get(i).information;
-                deadlines.add(new DeadlineEvent(expense, 0, date, information));
+                DeadlineEvent deadline = new DeadlineEvent(expense, 0, date, information);
+                deadline.setHour(hour);
+                deadline.setAmOrPm(hour_type);
+                deadline.setMinute(minute);
+                deadlines.add(deadline);
 
                 // Reconstruct all of the Intent objects associated with the PendingIntents for each alarm from the previous state
                 // We then add add the key-value pair to the Intent mapping, with the queried id as the key, and Intent object as the value
@@ -269,65 +292,60 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
 
     // Grabs all calendar events from previous state, and initializes local HashMap data struct with the data
     @SuppressLint("NewAPI")
-    public void retrieveCalendarEventsFromDatabase() {
+    public void retrieveCalendarEventsFromDatabase(CountDownLatch latch) {
         CalendarEventsDAO dao = new CalendarEventsDAO_Impl(db);
-        calendarEvents = dao.getCalendarEvents();
-        observer = new Observer<List<CalendarEventsEntity>>() {
-            @Override
-            public void onChanged(List<CalendarEventsEntity> calendarEventsEntities) {
-                if (calendarEventsEntities != null && !calendarEventsEntities.isEmpty()) {
-                    monthlyMapping = new HashMap<Integer, HashMap<LocalDate, ArrayList<CalendarEvent>>>();
-                    for (int i = 0; i < calendarEventsEntities.size(); i++) {
-                        int year = calendarEventsEntities.get(i).year;
-                        int month = calendarEventsEntities.get(i).month;
-                        int day = calendarEventsEntities.get(i).day;
-                        double expenses = calendarEventsEntities.get(i).expense;
-                        double income = calendarEventsEntities.get(i).income;
-                        LocalDate date = LocalDate.of(year, month, day);
-                        netExpenseFromCalendar += expenses;
-                        netIncomeFromCalendar += income;
-                        if (monthlyMapping.containsKey(month)) {
-                            HashMap<LocalDate, ArrayList<CalendarEvent>> monthlyEvents = monthlyMapping.get(month);
-                            if (monthlyEvents.containsKey(date)) {
-                                if (income == 0) {
-                                    monthlyEvents.get(date).add(new ExpensesEvent(expenses, income, date));
-                                } else {
-                                    monthlyEvents.get(date).add(new IncomeEvent(expenses, income, date));
-                                }
-                            } else {
-                                ArrayList<CalendarEvent> dayEvents = new ArrayList<CalendarEvent>();
-                                if (income == 0) {
-                                    dayEvents.add(new ExpensesEvent(expenses, income, date));
-                                } else {
-                                    dayEvents.add(new IncomeEvent(expenses, income,date));
-                                }
-                                monthlyEvents.put(date, dayEvents);
-                                monthlyMapping.put(month, monthlyEvents);
-                            }
+        List<CalendarEventsEntity> calendarEvents = dao.getCalendarEvents();
+        if (calendarEvents != null) {
+            monthlyMapping = new HashMap<Integer, HashMap<LocalDate, ArrayList<CalendarEvent>>>();
+            for (int i = 0; i < calendarEvents.size(); i++) {
+                int year = calendarEvents.get(i).year;
+                int month = calendarEvents.get(i).month;
+                int day = calendarEvents.get(i).day;
+                double expenses = calendarEvents.get(i).expense;
+                double income = calendarEvents.get(i).income;
+                LocalDate date = LocalDate.of(year, month, day);
+                netExpenseFromCalendar += expenses;
+                netIncomeFromCalendar += income;
+                if (monthlyMapping.containsKey(month)) {
+                    HashMap<LocalDate, ArrayList<CalendarEvent>> monthlyEvents = monthlyMapping.get(month);
+                    if (monthlyEvents.containsKey(date)) {
+                        if (income == 0) {
+                            monthlyEvents.get(date).add(new ExpensesEvent(expenses, income, date));
                         } else {
-                            HashMap<LocalDate, ArrayList<CalendarEvent>> eventsInMonth = new HashMap<LocalDate, ArrayList<CalendarEvent>>();
-                            ArrayList<CalendarEvent> dayEvents = new ArrayList<CalendarEvent>();
-                            if (income == 0) {
-                                dayEvents.add(new ExpensesEvent(expenses, income, date));
-                            } else {
-                                dayEvents.add(new IncomeEvent(expenses, income, date));
-                            }
-                            eventsInMonth.put(date, dayEvents);
-                            monthlyMapping.put(month, eventsInMonth);
+                            monthlyEvents.get(date).add(new IncomeEvent(expenses, income, date));
                         }
-                    }
-                    additionalExpensesFromCalendar = netExpenseFromCalendar - additionalExpensesFromCalendar;
-                    additionalIncomeFromCalendar = netIncomeFromCalendar - additionalIncomeFromCalendar;
-                    budget += Math.round((additionalIncomeFromCalendar - additionalExpensesFromCalendar) * 100.0) / 100.0;
-                    if (deadlines != null && !deadlines.isEmpty()) {
-                        overview.setText(String.join("", generateUpdatedText(expenses, income, budget, deadlines.size())));
                     } else {
-                        overview.setText(String.join("", generateUpdatedText(expenses, income, budget, 0)));
+                        ArrayList<CalendarEvent> dayEvents = new ArrayList<CalendarEvent>();
+                        if (income == 0) {
+                            dayEvents.add(new ExpensesEvent(expenses, income, date));
+                        } else {
+                            dayEvents.add(new IncomeEvent(expenses, income,date));
+                        }
+                        monthlyEvents.put(date, dayEvents);
+                        monthlyMapping.put(month, monthlyEvents);
                     }
+                } else {
+                    HashMap<LocalDate, ArrayList<CalendarEvent>> eventsInMonth = new HashMap<LocalDate, ArrayList<CalendarEvent>>();
+                    ArrayList<CalendarEvent> dayEvents = new ArrayList<CalendarEvent>();
+                    if (income == 0) {
+                        dayEvents.add(new ExpensesEvent(expenses, income, date));
+                    } else {
+                        dayEvents.add(new IncomeEvent(expenses, income, date));
+                    }
+                    eventsInMonth.put(date, dayEvents);
+                    monthlyMapping.put(month, eventsInMonth);
                 }
             }
-        };
-        calendarEvents.observe(this, observer);
+            additionalExpensesFromCalendar = netExpenseFromCalendar - additionalExpensesFromCalendar;
+            additionalIncomeFromCalendar = netIncomeFromCalendar - additionalIncomeFromCalendar;
+            budget += Math.round((additionalIncomeFromCalendar - additionalExpensesFromCalendar) * 100.0) / 100.0;
+            if (deadlines != null && !deadlines.isEmpty()) {
+                overview.setText(String.join("", generateUpdatedText(expenses, income, budget, deadlines.size())));
+            } else {
+                overview.setText(String.join("", generateUpdatedText(expenses, income, budget, 0)));
+            }
+        }
+        latch.countDown();
     }
 
     @SuppressLint("NewApi")
@@ -338,7 +356,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         // TODO Seems that the LiveData of DeadlineEventEntities onChanged is never called
         if (deadlines != null) {
             SharedPreferences sharedPreferences = getSharedPreferences("deadline_to_remove", Context.MODE_PRIVATE);
-            int numberOfDeadlines = sharedPreferences.getInt("number_of_deadlines", -1);
+            int numberOfDeadlines = sharedPreferences.getInt("number_of_deadlines", 0);
             for (int i = 0; i < numberOfDeadlines; i++) {
                 int day = sharedPreferences.getInt("day" + (i + 1), -1);
                 int month = sharedPreferences.getInt("month" + (i + 1), -1);
@@ -366,7 +384,6 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
             editor.clear();
             editor.apply();
             overview.setText(String.join("", generateUpdatedText(expenses, income, budget, deadlines.size())));
-
         } else {
             Log.i("Deadlines", "No deadlines were set");
         }
@@ -388,11 +405,10 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     @SuppressLint("NewAPI")
     // Method to set an alarm for a deadline. Automatically called by CalendarFragment after successfully adding a DeadlineEvent
     public void setAlarmForDeadline(DeadlineEvent deadline) {
-        // TODO Create a HashMap<Integer, Intent> where the integer key is the autogenerated key from the Room Database
-        // TODO When setting an alarm for a deadline, obtain the id for the particular deadline and set the id as the key, and the intent with all of it's extras, as the value
         AsyncTask.execute(new Runnable() {
             @Override
             public void run() {
+                // Create the intent object, and insert the necessary extras into it
                 Intent alarmIntent = new Intent(MainActivity.this, AlarmReceiver.class);
                 alarmIntent.setAction("com.example.expensestracker.ACTION_TRIGGER_ALARM");
                 alarmIntent.putExtra("year", deadline.getYear());
@@ -401,25 +417,43 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
                 alarmIntent.putExtra("information", deadline.getInformation());
                 alarmIntent.putExtra("amount", deadline.getExpenses());
 
+                // Query the database, and obtain the id for the corresponding deadline
                 DeadlineEventsDAO dao = new DeadlineEventsDAO_Impl(db);
                 int id = dao.getUUID(deadline.getAmount(), deadline.getInformation(), deadline.getMonth(), deadline.getDay(), deadline.getYear());
                 Log.i("Deadline ID", "ID=" + id);
+
+                // Use the id we obtained to insert a key-value pair of the id (as the key) and intent object (as the value)
                 deadlineIntentMapping.put(id, alarmIntent);
 
-                // Pass alarmIdCounter, then increment it. This ensures a unique PendingIntent for each DeadlineEvent
+                // Pass id as an argument into PendingIntent. Since the id is autogenerated in the database, this ensures a unique PendingIntent for each DeadlineEvent
                 // This allows us to easily remove an alarm for a deadline if the user chooses to remove a specific DeadlineEvent
                 PendingIntent pIntent = PendingIntent.getBroadcast(MainActivity.this, id, alarmIntent, PendingIntent.FLAG_UPDATE_CURRENT);
 
                 Calendar endDate = Calendar.getInstance();
-                endDate.set(deadline.getYear(), deadline.getMonth() - 1, deadline.getDay() - 1);
-                long triggerTime = endDate.getTimeInMillis() - System.currentTimeMillis();
+                endDate.set(deadline.getYear(), deadline.getMonth() - 1, deadline.getDay());
+                if (deadline.getAmOrPm() == CalendarEvent.AM) {
+                    if (deadline.getHour() == 12) {
+                        endDate.set(Calendar.HOUR_OF_DAY, deadline.getHour() + 12);
+                    } else {
+                        endDate.set(Calendar.HOUR_OF_DAY, deadline.getHour());
+                    }
+                } else {
+                    if (deadline.getHour() == 12) {
+                        endDate.set(Calendar.HOUR_OF_DAY, deadline.getHour());
+                    } else {
+                        endDate.set(Calendar.HOUR_OF_DAY, deadline.getHour() + 12);
+                    }
+                }
+                endDate.set(Calendar.MINUTE, deadline.getMinute());
 
-                alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + triggerTime, pIntent);
+                long triggerTime = endDate.getTimeInMillis() - System.currentTimeMillis();
+                Log.i("Trigger time", "Trigger time=" + triggerTime);
+
+                alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + 10000, pIntent);
             }
         });
 
     }
-
 
     @Override
     // This is called everytime the user returns to the main page.
@@ -488,8 +522,15 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     @Override
     // Using the arguments passed from clicking on an element in DeadlineDialog's RecyclerView, make a DeadlineEvent object
     // Compare this object with the rest of the DeadlineEvent objects in the DeadlineEvent ArrayList
-    public void sendDeadlineEventDate(double amount, String information, int month, int year, int day) {
+    public void sendDeadlineEventDate(double amount, String information, int month, int year, int day, int hour, int minute, String hourType) {
         DeadlineEvent targetDeadline = new DeadlineEvent(amount, 0, LocalDate.of(year, month, day), information);
+        targetDeadline.setHour(hour);
+        targetDeadline.setMinute(minute);
+        if (hourType.equals("AM")) {
+            targetDeadline.setAmOrPm(CalendarEvent.AM);
+        } else {
+            targetDeadline.setAmOrPm(CalendarEvent.PM);
+        }
         for (int i = 0; i < deadlines.size(); i++) {
             if (deadlines.get(i).equals(targetDeadline)) {
                 // DeadlineEvent object is equal to an object in the ArrayList
@@ -548,18 +589,39 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
 
                 // Database query to update the DeadlineEvent in the database with updated information
                 // Call setAlarmForDeadline method to set a new alarm with a new Intent object that contains the updated information as extras
-                dao.updateDeadlineEvent(targetDeadline.getAmount(), targetDeadline.getInformation(), targetDeadline.getMonth(), targetDeadline.getDay(), targetDeadline.getYear(), previousInformation);
+                dao.updateDeadlineEvent(targetDeadline.getAmount(),
+                        targetDeadline.getInformation(),
+                        targetDeadline.getMonth(),
+                        targetDeadline.getDay(),
+                        targetDeadline.getYear(),
+                        targetDeadline.getHour(),
+                        targetDeadline.getMinute(),
+                        targetDeadline.getAmOrPm(),
+                        previousInformation);
                 setAlarmForDeadline(targetDeadline);
-
                 Log.i("Deadline Update", "Success");
             }
         });
     }
 
     @Override
+    @SuppressLint("NewAPI")
     // Called from EditDeadlineDialog when the user deletes an existing CalendarEvent
     public void deleteCalendarEvent(CalendarEvent selectedEvent) {
-        // We update the RecyclerView in CalendarFragment after removing the specified DeadlineEvent from the ArrayList
+        // Check and see if after deletion of selected CalendarEvent, there are no remaining events for this day
+        // If so, remove this key-value pair from the HashMap
+        if (monthlyMapping.containsKey(selectedEvent.getMonth())) {
+            HashMap<LocalDate, ArrayList<CalendarEvent>> eventsOnDay = monthlyMapping.get(selectedEvent.getMonth());
+            LocalDate targetDate = LocalDate.of(selectedEvent.getYear(), selectedEvent.getMonth(), selectedEvent.getDay());
+            if (eventsOnDay.containsKey(targetDate)) {
+                ArrayList<CalendarEvent> events = eventsOnDay.get(targetDate);
+                if (events.isEmpty()) {
+                    eventsOnDay.remove(targetDate);
+                }
+            }
+        }
+
+        // We then update the RecyclerView in CalendarFragment after removing the specified DeadlineEvent from the ArrayList
         if (calendar != null) {
             calendar.updateRecyclerView();
         }
@@ -577,8 +639,6 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
             }
         });
     }
-
-
 
     @Override
     // Called when the user deletes an existing DeadlineEvent

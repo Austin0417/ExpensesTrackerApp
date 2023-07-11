@@ -5,7 +5,7 @@
     android:id="@+id/relativeLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".MonthlyInfoFragment">
+    tools:context=".monthlyinfo.MonthlyInfoFragment">
 
     <EditText
         android:id="@+id/monthlyExpenses"
@@ -16,6 +16,7 @@
         android:ems="10"
         android:hint="Enter monthly expenses"
         android:inputType="numberDecimal"
+        android:digits="0123456789."
         app:layout_constraintBottom_toTopOf="@+id/monthlyIncome"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
@@ -30,6 +31,7 @@
         android:ems="10"
         android:hint="Enter monthly income"
         android:inputType="numberDecimal"
+        android:digits="0123456789."
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />

@@ -27,19 +27,42 @@ public class DeadlineViewAdapter extends RecyclerView.Adapter<DeadlineViewAdapte
                 // Parse the string data from the TextView to obtain the month, day, year, amount, and information
                 @Override
                 public void onClick(View v) {
-                    String deadlineText = textView.getText().toString();
+                    String deadlineText = textView.getText().toString(); // 7/11/2023 (6:30 PM): $88.0 - dgf
                     Log.i("View Click", deadlineText);
-                    String[] dateSubstring = deadlineText.substring(0, 9).split("/");
-                    String[] amountAndInfoSubstring = deadlineText.substring(12).split(" - ");
+                    String unparsedDate[] = deadlineText.split(": "); // [7/11/2023 (6:30 PM), $88.0 - dgf]
+                    String dateAndTime = unparsedDate[0]; // 7/11/2023 (6:30 PM)
+                    String amountAndDescription[] = unparsedDate[1].split(" - "); // [$88.0, dgf]
 
-                    double amount = Double.parseDouble(amountAndInfoSubstring[0]);
-                    String information = amountAndInfoSubstring[1];
-                    int month = Integer.parseInt(dateSubstring[0]);
-                    int day = Integer.parseInt(dateSubstring[1]);
-                    int year = Integer.parseInt(dateSubstring[2]);
+                    String date[] = dateAndTime.substring(0, dateAndTime.indexOf(" (")).split("/"); // [7, 11, 2023]
+                    String time[] = dateAndTime.substring(dateAndTime.indexOf("(") + 1, dateAndTime.indexOf(")")).split(" "); // [6:30, PM]
+                    String hourAndMinute[] = time[0].split(":"); // [6, 30]
+
+                    int month = Integer.parseInt(date[0]); // 7
+                    int day = Integer.parseInt(date[1]); // 11
+                    int year = Integer.parseInt(date[2]); // 2023
+                    int hour = Integer.parseInt(hourAndMinute[0]); // 6
+                    int minute = Integer.parseInt(hourAndMinute[1]); // 30
+                    String hourType = time[1]; // PM
+                    double amount = Double.parseDouble(amountAndDescription[0].substring(1)); // 88.0
+                    String description = amountAndDescription[1]; // dgf
+
+//                    String splitString[] = deadlineText.split(": ");
+//                    String formattedDate = splitString[0];
+//                    String amountAndInfo = splitString[1];
+//                    String regex = "(\\d{1,2})/(\\d{1,2})/(\\d{4})";
+//
+//
+//                    String[] dateSubstring = formattedDate.split("/");
+//                    String[] amountAndInfoSubstring = amountAndInfo.substring(1).split(" - ");
+//
+//                    double amount = Double.parseDouble(amountAndInfoSubstring[0]);
+//                    String information = amountAndInfoSubstring[1];
+//                    int month = Integer.parseInt(dateSubstring[0]);
+//                    int day = Integer.parseInt(dateSubstring[1]);
+//                    int year = Integer.parseInt(dateSubstring[2]);
 
                     // Callback to MainActivity's sendDeadlineEventDate, we send the parsed information back to MainActivity's implemented callback
-                    editEvent.sendDeadlineEventDate(amount, information, month, year, day);
+                    editEvent.sendDeadlineEventDate(amount, description, month, year, day, hour, minute, hourType);
                 }
             });
         }

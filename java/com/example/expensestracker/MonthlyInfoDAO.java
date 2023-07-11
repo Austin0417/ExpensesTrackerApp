@@ -23,7 +23,7 @@ public interface MonthlyInfoDAO {
     void update(MonthlyInfoEntity monthlyInfo);
 
     @Query("SELECT * FROM monthly_info")
-    public LiveData<List<MonthlyInfoEntity>> getMonthlyInfo();
+    public List<MonthlyInfoEntity> getMonthlyInfo();
 
     @Query("DELETE FROM monthly_info")
     public void clearMonthlyInfo();

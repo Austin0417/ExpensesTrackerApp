@@ -80,6 +80,7 @@ public class AlarmReceiver extends BroadcastReceiver {
                 @Override
                 public void onComplete(@NonNull Task<String> task) {
                     if (!task.isSuccessful()) {
+                        Log.i("Device Token", "Failed to retrieve device token");
                         return;
                     }
                     DeadlineMessagingService.DEVICE_TOKEN = task.getResult();
@@ -101,7 +102,7 @@ public class AlarmReceiver extends BroadcastReceiver {
                     } catch (JSONException e) {
                         throw new RuntimeException(e);
                     }
-                    FirebaseMessaging.getInstance().send(new RemoteMessage.Builder(CalendarFragment.SENDER_ID + "@fcm.googleapis.com")
+                    FirebaseMessaging.getInstance().send(new RemoteMessage.Builder(DeadlineMessagingService.SENDER_ID + "@fcm.googleapis.com")
                             .addData("payload", payload.toString())
                             .build());
                 }

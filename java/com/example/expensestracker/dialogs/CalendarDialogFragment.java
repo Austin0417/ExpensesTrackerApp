@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.os.Bundle;
 
+import androidx.constraintlayout.widget.ConstraintSet;
 import androidx.fragment.app.DialogFragment;
 import androidx.fragment.app.Fragment;
 
@@ -20,13 +21,14 @@ import android.widget.Spinner;
 import android.widget.TextView;
 
 import com.example.expensestracker.R;
+import com.example.expensestracker.calendar.CalendarEvent;
 
 /**
  * A simple {@link Fragment} subclass.
  * Use the {@link CalendarDialogFragment#newInstance} factory method to
  * create an instance of this fragment.
  */
-public class CalendarDialogFragment extends DialogFragment {
+public class CalendarDialogFragment extends DialogFragment implements AdapterView.OnItemSelectedListener {
 
     // TODO: Rename parameter arguments, choose names that match
     // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
@@ -36,34 +38,101 @@ public class CalendarDialogFragment extends DialogFragment {
     // TODO: Rename and change types of parameters
     private String mParam1;
     private String mParam2;
+    // Input field for the user to enter in the amount if Expenses option was checked
     private EditText additionalExpenses;
+
+    // Input field for  the user to enter in the amount if the Income option was checked
     private EditText additionalIncome;
+
+    // Input fields for the user to enter in the amount and description if the Deadline option was checked
     private EditText deadlineText;
     private EditText deadlineDescription;
+
+    private Spinner hourSelection;
+    private Spinner am_pm_selection;
+    private Spinner minuteSelection;
+
     private View alertView;
 
     private String type;
+
+    private int hourForDeadline;
+    private int minuteForDeadline;
+    private int am_pm_selection_for_deadline;
 
     public CalendarDialogFragment() {
         // Required empty public constructor
     }
 
     @Override
+    public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
+        switch (parent.getId()) {
+            case R.id.hourSelection:
+                String hour = (String) parent.getItemAtPosition(pos);
+                hourForDeadline = Integer.parseInt(hour);
+                Log.i("Deadline Hour", "Selected hour=" + hourForDeadline);
+                break;
+            case R.id.am_pm_selection:
+                String selection = (String) parent.getItemAtPosition(pos);
+                Log.i("Deadline Selection", "Selection=" + selection);
+                if (selection.equals("AM")) {
+                    am_pm_selection_for_deadline = CalendarEvent.AM;
+                } else {
+                    am_pm_selection_for_deadline = CalendarEvent.PM;
+                }
+                break;
+            case R.id.minuteSelection:
+                String minute = ((String) parent.getItemAtPosition(pos)).substring(1);
+                minuteForDeadline = Integer.parseInt(minute);
+                Log.i("Deadline Selection", "Minute=" + minuteForDeadline);
+                break;
+        }
+    }
+
+    @Override
+    public void onNothingSelected(AdapterView<?> parent) {
+        hourForDeadline = 10;
+        am_pm_selection_for_deadline = CalendarEvent.AM;
+        minuteForDeadline = 0;
+    }
+
+    @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
         super.onCreateDialog(savedInstanceState);
         AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
-        LayoutInflater inflater = requireActivity().getLayoutInflater();
+        LayoutInflater inflater = LayoutInflater.from(getContext());
         View dialogView = inflater.inflate(R.layout.fragment_calendar_dialog, null, false);
         additionalIncome = dialogView.findViewById(R.id.incomeInput);
         additionalExpenses = dialogView.findViewById(R.id.expensesInput);
         deadlineText = dialogView.findViewById(R.id.deadlineInput);
         deadlineDescription = dialogView.findViewById(R.id.deadlineInfo);
+        hourSelection = dialogView.findViewById(R.id.hourSelection);
+        minuteSelection = dialogView.findViewById(R.id.minuteSelection);
+        am_pm_selection = dialogView.findViewById(R.id.am_pm_selection);
+
+        ArrayAdapter<String> hourSelectionAdapter = new ArrayAdapter<String>(getContext(),
+                android.R.layout.simple_spinner_item,
+                new String[]{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"});
+        hourSelectionAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        hourSelection.setAdapter(hourSelectionAdapter);
+        ArrayAdapter<String> minuteSelectionAdapter = new ArrayAdapter<String>(getContext(), android.R.layout.simple_spinner_item, new String[]{":00", ":15", ":30", ":45"});
+        minuteSelection.setAdapter(minuteSelectionAdapter);
+        ArrayAdapter<String> am_pm_adapter = new ArrayAdapter<String>(getContext(), android.R.layout.simple_spinner_item, new String[]{"AM", "PM"});
+        am_pm_adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        am_pm_selection.setAdapter(am_pm_adapter);
+
+        hourSelection.setOnItemSelectedListener(this);
+        am_pm_selection.setOnItemSelectedListener(this);
+        minuteSelection.setOnItemSelectedListener(this);
 
         // Initial state when the CalendarDialog is created, we hide everything except the list of choices
         deadlineDescription.setVisibility(View.GONE);
         additionalIncome.setVisibility(View.GONE);
         additionalExpenses.setVisibility(View.GONE);
         deadlineText.setVisibility(View.GONE);
+        hourSelection.setVisibility(View.GONE);
+        minuteSelection.setVisibility(View.GONE);
+        am_pm_selection.setVisibility(View.GONE);
 
         String[] choices = {"Additional Expenses", "Additional Income", "Deadline"};
         ArrayAdapter<String> adapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_dropdown_item);
@@ -97,6 +166,7 @@ public class CalendarDialogFragment extends DialogFragment {
                         double arr[] = {Double.parseDouble(deadlineText.getText().toString()), 0};
                         Bundle result = new Bundle();
                         result.putDoubleArray("calendarevent", arr);
+                        result.putIntArray("time_selection", new int[]{hourForDeadline, am_pm_selection_for_deadline, minuteForDeadline});
                         result.putString("deadline_description", deadlineDescription.getText().toString());
                         getParentFragmentManager().setFragmentResult("fragment_data", result);
                     }
@@ -117,6 +187,9 @@ public class CalendarDialogFragment extends DialogFragment {
                     additionalIncome.setVisibility(View.GONE);
                     deadlineText.setVisibility(View.GONE);
                     deadlineDescription.setVisibility(View.GONE);
+                    hourSelection.setVisibility(View.GONE);
+                    am_pm_selection.setVisibility(View.GONE);
+                    minuteSelection.setVisibility(View.GONE);
                     type = "expenses";
                 } else if (which == 1) {
                     // If the user has selected IncomeEvent
@@ -124,11 +197,17 @@ public class CalendarDialogFragment extends DialogFragment {
                     additionalExpenses.setVisibility(View.GONE);
                     deadlineText.setVisibility(View.GONE);
                     deadlineDescription.setVisibility(View.GONE);
+                    hourSelection.setVisibility(View.GONE);
+                    am_pm_selection.setVisibility(View.GONE);
+                    minuteSelection.setVisibility(View.GONE);
                     type = "income";
                 } else {
                     // The user has selected DeadlineEvent
                     deadlineText.setVisibility(View.VISIBLE);
                     deadlineDescription.setVisibility(View.VISIBLE);
+                    hourSelection.setVisibility(View.VISIBLE);
+                    am_pm_selection.setVisibility(View.VISIBLE);
+                    minuteSelection.setVisibility(View.VISIBLE);
                     additionalIncome.setVisibility(View.GONE);
                     additionalExpenses.setVisibility(View.GONE);
                     type = "deadline";

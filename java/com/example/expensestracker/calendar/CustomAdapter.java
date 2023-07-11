@@ -29,13 +29,19 @@ public class CustomAdapter extends RecyclerView.Adapter<CustomAdapter.ViewHolder
                 public void onClick(View view) {
                     // On click listener for all views within the RecyclerView
                     // We parse the text at the clicked element, and obtain the month, day, and year of the CalendarEvent
-                    String substr = textView.getText().toString().substring(0,9);
-                    String[] formattedDate = substr.split("/");
-                    int month = Integer.parseInt(formattedDate[0]);
-                    int day = Integer.parseInt(formattedDate[1]);
-                    int year = Integer.parseInt(formattedDate[2]);
-                    // Pass this back to MainActivity via a callback of EditEvent
-                    eventPasser.sendCalendarEventDate(month, year, day);
+                    if (textView.getText().toString() != null && !textView.getText().toString().isEmpty()) {
+                        String s = textView.getText().toString();
+                        String splitString[] = s.split(": ");
+                        String formattedDate[] = splitString[0].split("/");
+
+                        int month = Integer.parseInt(formattedDate[0]);
+                        int day = Integer.parseInt(formattedDate[1]);
+                        int year = Integer.parseInt(formattedDate[2]);
+                        // Pass this back to MainActivity via a callback of EditEvent
+                        eventPasser.sendCalendarEventDate(month, year, day);
+                    } else {
+                        Log.i("RecyclerView", "User click on invalid View");
+                    }
                 }
             });
         }

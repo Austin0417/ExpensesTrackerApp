@@ -9,6 +9,8 @@ import java.util.Map;
 
 public class DeadlineMessagingService extends FirebaseMessagingService {
     public static String DEVICE_TOKEN = null;
+    // Remove this later
+    public static final String SENDER_ID = "1056081938816";
     @Override
     public void onNewToken(String token) {
         Log.i("Token", token);

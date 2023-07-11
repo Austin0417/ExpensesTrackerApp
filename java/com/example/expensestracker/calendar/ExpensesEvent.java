@@ -13,4 +13,10 @@ public class ExpensesEvent extends CalendarEvent {
     public String getType() {
         return "expenses";
     }
+
+    @Override
+    public void setAmount(double amount) { setExpenses(amount); }
+
+    @Override
+    public double getAmount() { return getExpenses(); }
 }

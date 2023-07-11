@@ -41,7 +41,7 @@ public class MonthlyInfoFragment extends Fragment {
     private TextView expenses;
     private TextView income;
 
-    public PassMonthlyData monthlyData;
+    private PassMonthlyData monthlyData;
     public MainActivity mainActivity;
 
 
@@ -66,6 +66,22 @@ public class MonthlyInfoFragment extends Fragment {
         args.putString(ARG_PARAM2, param2);
         fragment.setArguments(args);
         return fragment;
+    }
+
+    public PassMonthlyData getMonthlyDataPasser() { return monthlyData; }
+
+    public double getExpenses() {
+        if (expenses.getText().toString().isEmpty()) {
+            return -1;
+        }
+        return Double.parseDouble(expenses.getText().toString());
+    }
+
+    public double getIncome() {
+        if (income.getText().toString().isEmpty()) {
+            return -1;
+        }
+        return Double.parseDouble(income.getText().toString());
     }
 
     @Override

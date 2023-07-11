@@ -13,4 +13,10 @@ public class IncomeEvent extends CalendarEvent {
     public String getType() {
         return "income";
     }
+
+    @Override
+    public void setAmount(double amount) { setIncome(amount); }
+
+    @Override
+    public double getAmount() { return getIncome(); }
 }

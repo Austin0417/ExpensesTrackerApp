@@ -23,4 +23,13 @@ public class DeadlineEventsEntity {
 
     @ColumnInfo(name="amount")
     public double expense;
+
+    @ColumnInfo(name="hour")
+    public int hour;
+
+    @ColumnInfo(name="minute")
+    public int minute;
+
+    @ColumnInfo(name="hour_type")
+    public int hour_type;
 }
