@@ -6,6 +6,27 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
+    <TextureView
+        android:id="@+id/textureView"
+        android:layout_width="401dp"
+        android:layout_height="0dp"
+        android:layout_marginTop="78dp"
+        android:layout_marginBottom="23dp"
+        app:layout_constraintBottom_toTopOf="@+id/takePictureBtn"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <Button
+        android:id="@+id/cameraBtn"
+        android:layout_width="114dp"
+        android:layout_height="49dp"
+        android:layout_marginTop="33dp"
+        android:text="Camera"
+        app:layout_constraintBottom_toBottomOf="@+id/textureView"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/initializeBtn" />
+
     <TextView
         android:id="@+id/dashboardLabel"
         android:layout_width="wrap_content"
@@ -22,12 +43,10 @@
 
     <FrameLayout
         android:id="@+id/calendarFragment"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
+        android:layout_width="398dp"
+        android:layout_height="633dp"
         android:layout_marginStart="1dp"
-        android:layout_marginTop="1dp"
         android:layout_marginEnd="1dp"
-        android:layout_marginBottom="1dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -42,18 +61,18 @@
 
     <Button
         android:id="@+id/initializeBtn"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="3dp"
+        android:layout_width="276dp"
+        android:layout_height="51dp"
         android:layout_marginTop="13dp"
         android:text="Initialize Expenses"
+        app:layout_constraintEnd_toStartOf="@+id/addBtn"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/overviewText" />
 
     <Button
         android:id="@+id/addBtn"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="123dp"
+        android:layout_height="52dp"
         android:layout_marginStart="288dp"
         android:layout_marginBottom="358dp"
         android:text="Add"
@@ -78,8 +97,8 @@
 
     <FrameLayout
         android:id="@+id/monthlyInfoFragment"
-        android:layout_width="413dp"
-        android:layout_height="727dp"
+        android:layout_width="416dp"
+        android:layout_height="774dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="1.0"
@@ -91,7 +110,29 @@
             android:id="@+id/monthlyInfo"
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
-
     </FrameLayout>
+
+    <ImageButton
+        android:id="@+id/takePictureBtn"
+        android:layout_width="115dp"
+        android:layout_height="70dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/calendarFragment"
+        app:srcCompat="@android:drawable/ic_menu_camera" />
+
+    <ImageButton
+        android:id="@+id/cameraBackBtn"
+        android:layout_width="117dp"
+        android:layout_height="55dp"
+        android:layout_marginTop="28dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/takePictureBtn"
+        app:layout_constraintHorizontal_bias="0.516"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/textureView"
+        app:layout_constraintVertical_bias="0.0"
+        app:srcCompat="@drawable/mcv_action_previous" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -1,5 +1,6 @@
 package com.example.expensestracker;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -21,18 +22,38 @@ import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.graphics.ImageFormat;
+import android.graphics.SurfaceTexture;
+import android.hardware.camera2.CameraAccessException;
+import android.hardware.camera2.CameraCaptureSession;
+import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CameraDevice;
+import android.hardware.camera2.CameraManager;
+import android.hardware.camera2.CameraMetadata;
+import android.hardware.camera2.CaptureRequest;
+import android.hardware.camera2.TotalCaptureResult;
+import android.media.Image;
+import android.media.ImageReader;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Environment;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.SystemClock;
 import android.text.SpannableString;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.style.BackgroundColorSpan;
 import android.util.Log;
+import android.util.Size;
+import android.view.Surface;
+import android.view.TextureView;
 import android.view.View;
 import android.widget.Button;
 import android.widget.FrameLayout;
+import android.widget.ImageButton;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.example.expensestracker.calendar.CalendarDataPass;
 import com.example.expensestracker.calendar.CalendarEvent;
@@ -51,8 +72,15 @@ import com.google.firebase.FirebaseApp;
 import com.example.expensestracker.monthlyinfo.PassMonthlyData;
 
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
@@ -61,11 +89,15 @@ import java.util.concurrent.CountDownLatch;
 
 public class MainActivity extends AppCompatActivity implements FragmentManager.OnBackStackChangedListener, PassMonthlyData, CalendarDataPass, EditEvent {
     private static final int NOTIFICATION_STATUS_CODE = 1;
+    private static final int CAMERA_STATUS_CODE = 2;
 
     // UI Elements of the main page
     FrameLayout addMonthlyInfoFragment;
     private Button addBtn;
     private Button initializeBtn;
+    private Button cameraBtn;
+    private ImageButton takePictureBtn;
+    private ImageButton cameraBackBtn;
     private FragmentManager manager;
     private TextView overview;
     private TextView dashboardLabel;
@@ -114,15 +146,82 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     private DeadlineDialog deadlineDialog;
     private MonthlyInfoFragment monthlyInfo = new MonthlyInfoFragment();
 
+    // Data members for interacting with Camera2 API
+    private TextureView textureView;
+    private CaptureRequest.Builder captureRequestBuilder;
+    private CameraDevice cameraDevice;
+    private CameraCaptureSession captureSession;
+    private ImageReader reader;
+    private HandlerThread backgroundThread;
+    private Handler backgroundHandler;
+    private int rotation;
+
+
+    // Callback for handling camera device actions
+    CameraDevice.StateCallback stateCallback = new CameraDevice.StateCallback() {
+        @Override
+        public void onOpened(@NonNull CameraDevice camera) {
+            // When the camera is opened, CameraManager open method is called
+            cameraDevice = camera;
+            hideMainUI();
+            takePictureBtn.setVisibility(View.VISIBLE);
+            cameraBackBtn.setVisibility(View.VISIBLE);
+            textureView.setVisibility(View.VISIBLE);
+            createCameraPreview();
+        }
+
+        @Override
+        public void onDisconnected(@NonNull CameraDevice camera) {
+            Log.i("Camera disconnect", "Closing camera...");
+            camera.close();
+            unhideMainUI();
+        }
+
+        @Override
+        public void onError(@NonNull CameraDevice camera, int error) {
+
+        }
+    };
+
+    TextureView.SurfaceTextureListener textureListener = new TextureView.SurfaceTextureListener() {
+        @Override
+        public void onSurfaceTextureAvailable(@NonNull SurfaceTexture surface, int width, int height) {
+            // When the surface texture for textureView is ready (this essentially happens at startup)
+            Log.i("Surface Texture", "Surface texture now available");
+            cameraBtn.setVisibility(View.VISIBLE);
+        }
+
+        @Override
+        public void onSurfaceTextureSizeChanged(@NonNull SurfaceTexture surface, int width, int height) {
+
+        }
+
+        @Override
+        public boolean onSurfaceTextureDestroyed(@NonNull SurfaceTexture surface) {
+            return false;
+        }
+
+        @Override
+        public void onSurfaceTextureUpdated(@NonNull SurfaceTexture surface) {
+
+        }
+    };
+
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == 1) {
+        if (requestCode == NOTIFICATION_STATUS_CODE) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 notificationsEnabled = true;
             } else {
                 notificationsEnabled = false;
+            }
+        } else if (requestCode == CAMERA_STATUS_CODE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Toast.makeText(MainActivity.this, "Camera permission granted, press the button again to start camera", Toast.LENGTH_LONG).show();
+            } else {
+                Toast.makeText(MainActivity.this, "Camera permissions were denied. Enable camera permissions to use this feature", Toast.LENGTH_LONG);
             }
         }
     }
@@ -135,12 +234,27 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         // Initializing all UI elements and obtaining a reference to them
         addBtn = findViewById(R.id.addBtn);
         initializeBtn = findViewById(R.id.initializeBtn);
+        cameraBtn = findViewById(R.id.cameraBtn);
+        takePictureBtn = findViewById(R.id.takePictureBtn);
+        cameraBackBtn = findViewById(R.id.cameraBackBtn);
         overview = findViewById(R.id.overviewText);
         dashboardLabel = findViewById(R.id.dashboardLabel);
         addMonthlyInfoFragment = findViewById(R.id.monthlyInfoFragment);
+        textureView = findViewById(R.id.textureView);
+
+        // Setting some views to be initially invisible
+        cameraBtn.setVisibility(View.INVISIBLE);
+        takePictureBtn.setVisibility(View.INVISIBLE);
+        cameraBackBtn.setVisibility(View.INVISIBLE);
+
+        backgroundThread = new HandlerThread("Camera Background");
+        backgroundThread.start();
+        backgroundHandler = new Handler(backgroundThread.getLooper());
+
+        textureView.setSurfaceTextureListener(textureListener);
+
         manager = getSupportFragmentManager();
         manager.addOnBackStackChangedListener(this);
-
 
         alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
 
@@ -173,6 +287,51 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
                 transaction.commit();
             }
         });
+        cameraBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // Button the user clicks to turn on the camera
+                if (CameraHelper.checkCameraHardware(MainActivity.this)) {
+                    CameraManager cameraManager = (CameraManager) MainActivity.this.getSystemService(Context.CAMERA_SERVICE);
+                    String rearCameraId = CameraHelper.getRearCameraId(MainActivity.this);
+                    if (rearCameraId != null) {
+                        // Check for camera permissions. If permission is not granted, request it
+                        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                            try {
+                                // Turn on the camera with specified id. In this case, it is the default, rear-facing camera
+                                // Also assign a CameraDevice.StateCallback to detect when the camera is successfully opened
+                                cameraManager.openCamera(rearCameraId, stateCallback, null);
+                            } catch (CameraAccessException e) {
+                                e.printStackTrace();
+                            }
+                        } else {
+                            ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.CAMERA}, CAMERA_STATUS_CODE);
+                        }
+                    } else {
+                        Toast.makeText(MainActivity.this, "No rear camera detected", Toast.LENGTH_LONG).show();
+                    }
+                } else {
+                    Toast.makeText(MainActivity.this, "Device does not have a camera", Toast.LENGTH_LONG).show();
+                }
+            }
+        });
+        takePictureBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                takePicture();
+            }
+        });
+        cameraBackBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                cameraDevice.close();
+                cameraDevice = null;
+                textureView.setVisibility(View.INVISIBLE);
+                takePictureBtn.setVisibility(View.INVISIBLE);
+                cameraBackBtn.setVisibility(View.INVISIBLE);
+                unhideMainUI();
+            }
+        });
         // Requesting notification permissions if permissions are not allowed
         if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, NOTIFICATION_STATUS_CODE);
@@ -180,6 +339,178 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         }
         FirebaseApp.initializeApp(this);
         initializeDatabase();
+    }
+
+    public void createCameraPreview() {
+        SurfaceTexture texture = textureView.getSurfaceTexture();
+        try {
+            if (texture == null) {
+                Log.i("Surface texture", "Couldn't obtain surface texture");
+                Toast.makeText(MainActivity.this, "Coudln't obtain surface texture", Toast.LENGTH_LONG).show();
+                return;
+            }
+
+            texture.setDefaultBufferSize(textureView.getWidth(), textureView.getHeight());
+            Surface surface = new Surface(texture);
+            captureRequestBuilder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+            captureRequestBuilder.addTarget(surface);
+            List<Surface> outputSurface = new ArrayList<Surface>(1);
+            outputSurface.add(surface);
+            cameraDevice.createCaptureSession(outputSurface, new CameraCaptureSession.StateCallback() {
+                @Override
+                public void onConfigured(@NonNull CameraCaptureSession session) {
+                    if (cameraDevice == null) {
+                        Log.i("Camera device", "Camera device is null");
+                        return;
+                    }
+                    captureSession = session;
+                    updatePreview();
+                }
+
+                @Override
+                public void onConfigureFailed(@NonNull CameraCaptureSession session) {
+
+                }
+            }, null);
+
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void updatePreview() {
+        if (cameraDevice == null) {
+            Log.i("Update preview", "Update preview error");
+        }
+        captureRequestBuilder.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO);
+        try {
+            // This line is responsible for "refreshing" the camera preview constantly, otherwise the camera preview in the TextureView will only display one frame
+            captureSession.setRepeatingRequest(captureRequestBuilder.build(), null, backgroundHandler);
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void takePicture() {
+        if (cameraDevice == null) {
+            Log.i("Camera Device", "Camera is null");
+            return;
+        }
+        CameraManager cameraManager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
+        try {
+            CameraCharacteristics characteristics = cameraManager.getCameraCharacteristics(cameraDevice.getId());
+            Size imageSize[] = null;
+            if (characteristics != null) {
+                imageSize = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP).getOutputSizes(ImageFormat.JPEG);
+            }
+            int width = 640;
+            int height = 480;
+            if (imageSize != null && imageSize.length > 0) {
+                width = imageSize[0].getWidth();
+                height = imageSize[0].getHeight();
+            }
+            reader = ImageReader.newInstance(width, height, ImageFormat.JPEG, 1);
+            ArrayList<Surface> outputSurfaces = new ArrayList<Surface>(2);
+            outputSurfaces.add(reader.getSurface());
+            outputSurfaces.add(new Surface(textureView.getSurfaceTexture()));
+            CaptureRequest.Builder captureRequest = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+            captureRequest.addTarget(reader.getSurface());
+            captureRequest.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO);
+            Log.i("Take Picture", "Successfully took picture");
+
+            rotation = getWindowManager().getDefaultDisplay().getRotation();
+            Log.i("Rotation", "Rotation=" + rotation);
+            switch(rotation) {
+                case 0:
+                    captureRequest.set(CaptureRequest.JPEG_ORIENTATION, Surface.ROTATION_90);
+                    break;
+                case 90:
+                    captureRequest.set(CaptureRequest.JPEG_ORIENTATION, Surface.ROTATION_0);
+                    break;
+                case 180:
+                    captureRequest.set(CaptureRequest.JPEG_ORIENTATION, Surface.ROTATION_270);
+                    break;
+                case 270:
+                    captureRequest.set(CaptureRequest.JPEG_ORIENTATION, Surface.ROTATION_180);
+                    break;
+            }
+
+            ImageReader.OnImageAvailableListener imageListener = new ImageReader.OnImageAvailableListener() {
+                @Override
+                public void onImageAvailable(ImageReader reader) {
+                    // When an image is available after the user takes a picture
+                    Log.i("Image avaiable", "Obtained image, processing...");
+                    Image image = null;
+                    try {
+                        image = reader.acquireLatestImage();
+                        ByteBuffer buffer = image.getPlanes()[0].getBuffer();
+                        byte bytes[] = new byte[buffer.capacity()];
+                        buffer.get(bytes);
+                        save(bytes);
+                    } catch (FileNotFoundException e) {
+                        e.printStackTrace();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    } finally {
+                        if (image != null) {
+                            image.close();
+                        }
+                    }
+                }
+            };
+            reader.setOnImageAvailableListener(imageListener, backgroundHandler);
+
+            CameraCaptureSession.CaptureCallback captureListener = new CameraCaptureSession.CaptureCallback() {
+                @Override
+                public void onCaptureCompleted(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request, @NonNull TotalCaptureResult result) {
+                    super.onCaptureCompleted(session, request, result);
+                    createCameraPreview();
+                }
+            };
+            cameraDevice.createCaptureSession(outputSurfaces, new CameraCaptureSession.StateCallback() {
+                @Override
+                public void onConfigured(@NonNull CameraCaptureSession session) {
+                    try {
+                        session.capture(captureRequest.build(), captureListener, backgroundHandler);
+                    } catch (CameraAccessException e) {
+                        e.printStackTrace();
+                    }
+                }
+                @Override
+                public void onConfigureFailed(@NonNull CameraCaptureSession session) {
+                    reader = ImageReader.newInstance(640, 480, ImageFormat.JPEG, 1);
+                    takePicture();
+                    createCameraPreview();
+                }
+            }, backgroundHandler);
+
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void save(byte[] bytes) throws IOException {
+        File imageDirectory = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "Images");
+        File imageFile = null;
+        if (!imageDirectory.exists()) {
+            if (imageDirectory.mkdirs()) {
+                Toast.makeText(this, "Created images folder. Image can be found in the 'Images' folder", Toast.LENGTH_LONG).show();
+                imageFile = new File(imageDirectory, "receipt_img.jpg");
+            } else {
+                Toast.makeText(this, "Couldn't create 'Images' folder, saving image to root instead", Toast.LENGTH_LONG).show();
+                imageFile = new File(getExternalFilesDir(null), "receipt_img.jpg");
+            }
+        } else {
+            imageFile = new File(imageDirectory, "receipt_img.jpg");
+        }
+        FileOutputStream outputStream = new FileOutputStream(imageFile);
+
+        try {
+            outputStream.write(bytes);
+            Toast.makeText(this, "Successfully saved image", Toast.LENGTH_LONG).show();
+        } finally {
+            outputStream.close();
+        }
     }
 
     @Override
@@ -745,6 +1076,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     public void hideMainUI() {
         overview.setVisibility(View.INVISIBLE);
         addBtn.setVisibility(View.INVISIBLE);
+        cameraBtn.setVisibility(View.INVISIBLE);
         initializeBtn.setVisibility(View.INVISIBLE);
         dashboardLabel.setVisibility(View.INVISIBLE);
     }
@@ -752,6 +1084,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     public void unhideMainUI() {
         overview.setVisibility(View.VISIBLE);
         addBtn.setVisibility(View.VISIBLE);
+        cameraBtn.setVisibility(View.VISIBLE);
         initializeBtn.setVisibility(View.VISIBLE);
         dashboardLabel.setVisibility(View.VISIBLE);
     }
