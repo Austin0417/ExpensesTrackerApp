@@ -38,15 +38,20 @@ public class MonthlyInfoFragment extends Fragment {
 
     private Button backBtn;
     private Button resetBtn;
-    private TextView expenses;
-    private TextView income;
+    private TextView expensesInput;
+    private TextView incomeInput;
+
+    private final double expenses;
+    private final double income;
 
     private PassMonthlyData monthlyData;
     public MainActivity mainActivity;
 
 
-    public MonthlyInfoFragment() {
+    public MonthlyInfoFragment(double expenses, double income) {
         super(R.layout.fragment_monthly_info);
+        this.expenses = expenses;
+        this.income = income;
         // Required empty public constructor
     }
 
@@ -54,34 +59,33 @@ public class MonthlyInfoFragment extends Fragment {
      * Use this factory method to create a new instance of
      * this fragment using the provided parameters.
      *
-     * @param param1 Parameter 1.
-     * @param param2 Parameter 2.
+
      * @return A new instance of fragment monthlyInfo.
      */
     // TODO: Rename and change types and number of parameters
-    public static MonthlyInfoFragment newInstance(String param1, String param2) {
-        MonthlyInfoFragment fragment = new MonthlyInfoFragment();
+    public static MonthlyInfoFragment newInstance(double expenses, double income) {
+        MonthlyInfoFragment fragment = new MonthlyInfoFragment(expenses, income);
         Bundle args = new Bundle();
-        args.putString(ARG_PARAM1, param1);
-        args.putString(ARG_PARAM2, param2);
+        args.putDouble("expenses", expenses);
+        args.putDouble("income", income);
         fragment.setArguments(args);
         return fragment;
     }
 
     public PassMonthlyData getMonthlyDataPasser() { return monthlyData; }
 
-    public double getExpenses() {
-        if (expenses.getText().toString().isEmpty()) {
+    public double getExpensesInput() {
+        if (expensesInput.getText().toString().isEmpty()) {
             return -1;
         }
-        return Double.parseDouble(expenses.getText().toString());
+        return Double.parseDouble(expensesInput.getText().toString());
     }
 
-    public double getIncome() {
-        if (income.getText().toString().isEmpty()) {
+    public double getIncomeInput() {
+        if (incomeInput.getText().toString().isEmpty()) {
             return -1;
         }
-        return Double.parseDouble(income.getText().toString());
+        return Double.parseDouble(incomeInput.getText().toString());
     }
 
     @Override
@@ -96,8 +100,8 @@ public class MonthlyInfoFragment extends Fragment {
             public void onFragmentResult(@NonNull String requestKey, @NonNull Bundle result) {
                 int fragmentResult = result.getInt("reset");
                 if (fragmentResult == 1) {
-                    expenses.setText("");
-                    income.setText("");
+                    expensesInput.setText("");
+                    incomeInput.setText("");
                     FragmentManager manager = getParentFragmentManager();
                     manager.popBackStack();
                     mainActivity.resetInfo();
@@ -114,15 +118,19 @@ public class MonthlyInfoFragment extends Fragment {
         View view = inflater.inflate(R.layout.fragment_monthly_info, container, false);
         backBtn = view.findViewById(R.id.backBtn);
         resetBtn = view.findViewById(R.id.resetBtn);
-        expenses = view.findViewById(R.id.monthlyExpenses);
-        income = view.findViewById(R.id.monthlyIncome);
+        expensesInput = view.findViewById(R.id.monthlyExpenses);
+        incomeInput = view.findViewById(R.id.monthlyIncome);
+
+        expensesInput.setText(Double.toString(expenses));
+        incomeInput.setText(Double.toString(income));
+
         backBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 FragmentManager manager = getParentFragmentManager();
-                if (!expenses.getText().toString().isEmpty() && !income.getText().toString().isEmpty()) {
-                    monthlyData.onDataPassed(Double.parseDouble(expenses.getText().toString()), Double.parseDouble(income.getText().toString()));
-                    Log.i("Data pass", "Expenses: " + expenses.getText().toString() + "\nIncome: " + income.getText().toString());
+                if (!expensesInput.getText().toString().isEmpty() && !incomeInput.getText().toString().isEmpty()) {
+                    monthlyData.onDataPassed(Double.parseDouble(expensesInput.getText().toString()), Double.parseDouble(incomeInput.getText().toString()));
+                    Log.i("Data pass", "Expenses: " + expensesInput.getText().toString() + "\nIncome: " + incomeInput.getText().toString());
                 }
                 manager.popBackStack();
                 ((MainActivity) getActivity()).unhideMainUI();

@@ -1,4 +1,4 @@
-package com.example.expensestracker;
+package com.example.expensestracker.helpers;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -17,8 +17,7 @@ public class CameraHelper {
             return false;
         }
     }
-    public static String getRearCameraId(Context context) {
-        CameraManager cameraManager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
+    public static String getRearCameraId(Context context, CameraManager cameraManager) {
         String cameraId = null;
         try {
             String cameraIds[] = cameraManager.getCameraIdList();

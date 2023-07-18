@@ -32,6 +32,7 @@ import com.example.expensestracker.R;
 import com.example.expensestracker.dialogs.CalendarDialogFragment;
 import com.example.expensestracker.dialogs.ClearDialog;
 import com.example.expensestracker.dialogs.DeadlineDialog;
+import com.example.expensestracker.helpers.CalendarHelper;
 import com.prolificinteractive.materialcalendarview.CalendarDay;
 import com.prolificinteractive.materialcalendarview.MaterialCalendarView;
 import com.prolificinteractive.materialcalendarview.OnDateSelectedListener;
@@ -220,17 +221,7 @@ public class CalendarFragment extends Fragment {
                             deadline.setAmOrPm(deadline_time_selections[1]);
                             deadline.setMinute(deadline_time_selections[2]);
                         }
-
-                        Calendar calendar = Calendar.getInstance();
-                        calendar.set(deadline.getYear(), deadline.getMonth() - 1, deadline.getDay());
-
-                        // Check for the case where the user attempts to add a deadline for a past date
-                        if (calendar.getTimeInMillis() - System.currentTimeMillis() < 0) {
-                            Toast.makeText(getActivity(), "Cannot set a deadline in the past!", Toast.LENGTH_LONG).show();
-                            return;
-                        }
-                        deadlines.add(deadline);
-                        Toast.makeText(getActivity(), "Successfully set deadline for " + deadline.getMonth() + "/" + deadline.getDay() + "/" + deadline.getYear(), Toast.LENGTH_LONG).show();
+                        CalendarHelper.insertEvent(deadlines, deadline, getContext());
 
                         // After every calendar and deadline event addition, we have to update the database accordingly
                         AsyncTask.execute(new Runnable() {
@@ -257,36 +248,8 @@ public class CalendarFragment extends Fragment {
                     // Expenses Event
                     else if (data[1] == 0) {
                         Log.i("Dialog Data", "Type: Expense. Amount: " + data[0]);
-                        // There are already some events in the current month
-                        if (monthlyExpensesMapping.containsKey(currentMonth)) {
-                            HashMap<LocalDate, ArrayList<CalendarEvent>> dayMapping = monthlyExpensesMapping.get(currentMonth);
-
-                            // There are already some events associated with this particular day
-                            if (dayMapping.containsKey(date)) {
-                                ArrayList<CalendarEvent> eventsOnDay = monthlyExpensesMapping.get(currentMonth).get(date);
-                                if (eventsOnDay.size() >= 10) {
-                                    // If the user has 10 or more events on a particular date, do not add events any further
-                                    Toast.makeText(getContext(), "Event limit for a particular day has been reached!", Toast.LENGTH_LONG).show();
-                                    return;
-                                }
-                                eventsOnDay.add(new ExpensesEvent(data[0], data[1], date));
-
-                            // First event associated with this particular day, so we have to initialize the array in the nested hashmap
-                            } else {
-                                ArrayList<CalendarEvent> events = new ArrayList<CalendarEvent>();
-                                events.add(new ExpensesEvent(data[0], data[1], date));
-                                dayMapping.put(date, events);
-                                monthlyExpensesMapping.put(currentMonth, dayMapping);
-                            }
-
-                        // No events in the current month yet, initialize the hashmaps and array
-                        } else {
-                            HashMap<LocalDate, ArrayList<CalendarEvent>> eventsOnDay = new HashMap<LocalDate, ArrayList<CalendarEvent>>();
-                            ArrayList<CalendarEvent> events = new ArrayList<CalendarEvent>();
-                            events.add(new ExpensesEvent(data[0], data[1], date));
-                            eventsOnDay.put(date, events);
-                            monthlyExpensesMapping.put(currentMonth, eventsOnDay);
-                        }
+                        ExpensesEvent event = new ExpensesEvent(data[0], data[1], date);
+                        CalendarHelper.insertEvent(monthlyExpensesMapping, event, getContext());
 
                         // Insert the ExpensesEvent data into the database
                         AsyncTask.execute(new Runnable() {
@@ -306,32 +269,8 @@ public class CalendarFragment extends Fragment {
 
                     // Income Event
                     } else if (data[0] == 0) {
-                        if (monthlyExpensesMapping.containsKey(currentMonth)) {
-                            HashMap<LocalDate, ArrayList<CalendarEvent>> dayMapping = monthlyExpensesMapping.get(currentMonth);
-                            if (dayMapping.containsKey(date)) {
-                                // If there is already a CalendarEvent on that date
-                                ArrayList<CalendarEvent> eventsOnDay = monthlyExpensesMapping.get(currentMonth).get(date);
-                                if (eventsOnDay.size() >= 10) {
-                                    // If the user already has 10 or more events on a particular date, do not add events any further
-                                    Toast.makeText(getContext(), "Event limit for a particular day has been reached!", Toast.LENGTH_LONG).show();
-                                    return;
-                                }
-                                eventsOnDay.add(new IncomeEvent(data[0], data[1], date));
-                            } else {
-                                // If not, create a new ArrayList for that date and insert the newly created event into the ArrayList
-                                ArrayList<CalendarEvent> events = new ArrayList<CalendarEvent>();
-                                events.add(new IncomeEvent(data[0], data[1], date));
-                                dayMapping.put(date, events);
-                                monthlyExpensesMapping.put(currentMonth, dayMapping);
-                            }
-                        } else {
-                            // If this IncomeEvent is the first in the month so far
-                            HashMap<LocalDate, ArrayList<CalendarEvent>> eventsOnDay = new HashMap<LocalDate, ArrayList<CalendarEvent>>();
-                            ArrayList<CalendarEvent> events = new ArrayList<CalendarEvent>();
-                            events.add(new IncomeEvent(data[0], data[1], date));
-                            eventsOnDay.put(date, events);
-                            monthlyExpensesMapping.put(currentMonth, eventsOnDay);
-                        }
+                        IncomeEvent event = new IncomeEvent(data[0], data[1], date);
+                        CalendarHelper.insertEvent(monthlyExpensesMapping, event, getContext());
 
                         // Insert the IncomeEvent data into the database
                         AsyncTask.execute(new Runnable() {
@@ -448,7 +387,6 @@ public class CalendarFragment extends Fragment {
         dataPasser = (CalendarDataPass) context;
     }
 
-
     // Handle to the database for this fragment
     public void setDatabase(ExpensesTrackerDatabase db) {
         this.db = db;
@@ -456,39 +394,6 @@ public class CalendarFragment extends Fragment {
 
     // Setter method for ArrayList of deadlines, used for updating CalendarFragment's deadline ArrayList from MainActivity
     public void setDeadlines(ArrayList<DeadlineEvent> deadlines) { this.deadlines = deadlines; }
-
-    // Helper method to calculate all financial information
-    public static ArrayList<Double> calculateTotalBudget(ArrayList<CalendarEvent> events) {
-        // Element 0: Net Additional Budget
-        // Element 1: Net Expenses
-        // Element 2: Net Income
-        // Element 3: Number of ExpenseEvents
-        // Element 4: Number of IncomeEvents
-        ArrayList<Double> res = new ArrayList<Double>();
-        double netExpenses = 0;
-        double netIncome = 0;
-        int expensesEvents = 0;
-        int incomeEvents = 0;
-        int deadlineEvents = 0;
-        for (int i = 0; i < events.size(); i++) {
-                if (events.get(i) instanceof ExpensesEvent) {
-                    netExpenses += events.get(i).getExpenses();
-                    expensesEvents++;
-                } else if (events.get(i) instanceof IncomeEvent) {
-                    netIncome += events.get(i).getIncome();
-                    incomeEvents++;
-                } else {
-                    deadlineEvents++;
-                }
-        }
-        res.add(Math.round((netIncome - netExpenses) * 100.0) / 100.0);
-        res.add(netExpenses);
-        res.add(netIncome);
-        res.add((double)expensesEvents);
-        res.add((double)incomeEvents);
-        res.add((double)deadlineEvents);
-        return res;
-    }
 
 
     // Initializes and updates the RecyclerView that displays all calendar events
@@ -517,11 +422,28 @@ public class CalendarFragment extends Fragment {
                     for (int i = 0; i < dates.size(); i++) {
                         ArrayList<CalendarEvent> eventsOnDay = events.get(dates.get(i));
                         if (!eventsOnDay.isEmpty()) {
-                            ArrayList<Double> dayInfo = calculateTotalBudget(eventsOnDay);
+                            ArrayList<Double> dayInfo = CalendarHelper.calculateTotalBudget(eventsOnDay);
+                            // dayInfo indexes:
+                            // Element 0: Net Additional Budget
+                            // Element 1: Net Expenses
+                            // Element 2: Net Income
+                            // Element 3: Number of ExpenseEvents
+                            // Element 4: Number of IncomeEvents
+
                             double totalBudget = dayInfo.get(0);
                             int numberOfExpenses = dayInfo.get(3).intValue();
                             int numberOfIncome = dayInfo.get(4).intValue();
-                            mDataset[datasetCounter] = eventsOnDay.get(0).getMonth() + "/" + eventsOnDay.get(0).getDay() + "/" + eventsOnDay.get(0).getYear() + ": " + eventsOnDay.size() + " events (" + numberOfExpenses + " expenses, " + numberOfIncome + " income)" + " Budget: $" + totalBudget;
+                            if (totalBudget < 0) {
+                                mDataset[datasetCounter] = eventsOnDay.get(0).getMonth() + "/" + eventsOnDay.get(0).getDay() + "/"
+                                        + eventsOnDay.get(0).getYear() + ": " + eventsOnDay.size() +
+                                        " events (" + numberOfExpenses + " expenses, " + numberOfIncome +
+                                        " income)" + " Budget: -$" + Math.abs(totalBudget);
+                            } else {
+                                mDataset[datasetCounter] = eventsOnDay.get(0).getMonth() + "/" + eventsOnDay.get(0).getDay() + "/"
+                                        + eventsOnDay.get(0).getYear() + ": " + eventsOnDay.size() +
+                                        " events (" + numberOfExpenses + " expenses, " + numberOfIncome +
+                                        " income)" + " Budget: $" + totalBudget;
+                            }
                             datasetCounter++;
                         }
                     }

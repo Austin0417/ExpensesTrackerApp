@@ -10,62 +10,59 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
-        <com.prolificinteractive.materialcalendarview.MaterialCalendarView
-            android:id="@+id/calendarView"
-            android:layout_width="370dp"
-            android:layout_height="300dp"
-            android:layout_marginTop="6dp"
-            android:layout_marginBottom="284dp"
-            app:layout_constraintBottom_toTopOf="@+id/exitBtn"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintHorizontal_bias="0.0"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintVertical_bias="0.0" />
-
-        <Button
-            android:id="@+id/exitBtn"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:layout_marginBottom="61dp"
-            android:text="Back"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/recyclerView" />
+                <com.prolificinteractive.materialcalendarview.MaterialCalendarView
+                    android:id="@+id/calendarView"
+                    android:layout_width="370dp"
+                    android:layout_height="300dp"
+                    android:layout_marginTop="6dp"
+                    android:layout_marginBottom="284dp"
+                    app:layout_constraintBottom_toTopOf="@+id/recyclerView"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintHorizontal_bias="0.0"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintVertical_bias="0.0" />
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/recyclerView"
-            android:layout_width="397dp"
-            android:layout_height="160dp"
+            android:layout_width="match_parent"
+            android:layout_height="102dp"
             android:layout_marginTop="443dp"
             android:layout_marginBottom="48dp"
             android:scrollbars="vertical"
-            app:layout_constraintBottom_toTopOf="@+id/exitBtn"
+            app:layout_constraintBottom_toTopOf="@+id/tableRow"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintHorizontal_bias="0.0"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
-        <Button
-            android:id="@+id/deadlineBtn"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="16dp"
-            android:text="Deadlines"
-            app:layout_constraintBottom_toBottomOf="@+id/exitBtn"
+        <TableRow
+            android:id="@id/tableRow"
+            android:layout_width="308dp"
+            android:layout_height="64dp"
+            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="@+id/exitBtn"
-            app:layout_constraintVertical_bias="0.0" />
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/recyclerView">
 
-        <Button
-            android:id="@+id/clearBtn"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="31dp"
-            android:text="Clear"
-            app:layout_constraintBaseline_toBaselineOf="@+id/deadlineBtn"
-            app:layout_constraintEnd_toStartOf="@+id/deadlineBtn" />
+            <Button
+                android:id="@+id/exitBtn"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Back" />
+
+            <Button
+                android:id="@+id/clearBtn"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Clear" />
+
+            <Button
+                android:id="@+id/deadlineBtn"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Deadlines" />
+        </TableRow>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </FrameLayout>

@@ -33,6 +33,8 @@ public abstract class CalendarEvent implements Comparable<CalendarEvent> {
         this.date = date;
     }
 
+    public LocalDate getDate() { return date; }
+
     public String getInformation() {
         return information;
     }

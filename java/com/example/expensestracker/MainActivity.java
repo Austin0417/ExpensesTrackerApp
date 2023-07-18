@@ -6,23 +6,23 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
-import androidx.lifecycle.LiveData;
-import androidx.lifecycle.Observer;
-import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.room.Room;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ImageFormat;
+import android.graphics.Paint;
+import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
@@ -39,19 +39,18 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.Looper;
 import android.os.SystemClock;
-import android.text.SpannableString;
-import android.text.SpannableStringBuilder;
-import android.text.Spanned;
-import android.text.style.BackgroundColorSpan;
 import android.util.Log;
 import android.util.Size;
+import android.util.SparseIntArray;
 import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -62,32 +61,44 @@ import com.example.expensestracker.calendar.DeadlineEvent;
 import com.example.expensestracker.calendar.EditEvent;
 import com.example.expensestracker.calendar.ExpensesEvent;
 import com.example.expensestracker.calendar.IncomeEvent;
+import com.example.expensestracker.dialogs.AmountConfirmationDialog;
 import com.example.expensestracker.dialogs.DeadlineDialog;
 import com.example.expensestracker.dialogs.EditDeadlineDialog;
 import com.example.expensestracker.dialogs.EditEventDialog;
+import com.example.expensestracker.helpers.CalendarHelper;
+import com.example.expensestracker.helpers.CameraHelper;
+import com.example.expensestracker.helpers.CreateEventFromImage;
+import com.example.expensestracker.helpers.ImageText;
+import com.example.expensestracker.helpers.ImageTextCallback;
 import com.example.expensestracker.monthlyinfo.MonthlyInfoEntity;
 import com.example.expensestracker.monthlyinfo.MonthlyInfoFragment;
 import com.example.expensestracker.notifications.AlarmReceiver;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.gms.tasks.Task;
 import com.google.firebase.FirebaseApp;
 import com.example.expensestracker.monthlyinfo.PassMonthlyData;
+import com.google.mlkit.vision.common.InputImage;
+import com.google.mlkit.vision.text.Text;
+import com.google.mlkit.vision.text.TextRecognition;
+import com.google.mlkit.vision.text.TextRecognizer;
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions;
 
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 
-public class MainActivity extends AppCompatActivity implements FragmentManager.OnBackStackChangedListener, PassMonthlyData, CalendarDataPass, EditEvent {
+public class MainActivity extends AppCompatActivity implements FragmentManager.OnBackStackChangedListener, PassMonthlyData, CalendarDataPass, EditEvent, CreateEventFromImage {
     private static final int NOTIFICATION_STATUS_CODE = 1;
     private static final int CAMERA_STATUS_CODE = 2;
 
@@ -96,6 +107,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     private Button addBtn;
     private Button initializeBtn;
     private Button cameraBtn;
+    private Button confirmBtn;
     private ImageButton takePictureBtn;
     private ImageButton cameraBackBtn;
     private FragmentManager manager;
@@ -144,7 +156,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     // Allows us to call methods such as updating UI and syncing data from the MainActivity
     private CalendarFragment calendar;
     private DeadlineDialog deadlineDialog;
-    private MonthlyInfoFragment monthlyInfo = new MonthlyInfoFragment();
+    private MonthlyInfoFragment monthlyInfo = new MonthlyInfoFragment(expenses, income);
 
     // Data members for interacting with Camera2 API
     private TextureView textureView;
@@ -152,18 +164,31 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     private CameraDevice cameraDevice;
     private CameraCaptureSession captureSession;
     private ImageReader reader;
+    private ImageView annotatedImage;
+    private String imageText = null;
+    private static final SparseIntArray ORIENTATIONS = new SparseIntArray();
+    static {
+        ORIENTATIONS.append(Surface.ROTATION_0, 0);
+        ORIENTATIONS.append(Surface.ROTATION_90, 90);
+        ORIENTATIONS.append(Surface.ROTATION_180, 180);
+        ORIENTATIONS.append(Surface.ROTATION_270, 270);
+    }
+
     private HandlerThread backgroundThread;
     private Handler backgroundHandler;
     private int rotation;
+
+    // Extracted total from receipt
+    private double total;
 
 
     // Callback for handling camera device actions
     CameraDevice.StateCallback stateCallback = new CameraDevice.StateCallback() {
         @Override
         public void onOpened(@NonNull CameraDevice camera) {
-            // When the camera is opened, CameraManager open method is called
-            cameraDevice = camera;
+            // This callback happens when cameraManager calls its open method
             hideMainUI();
+            cameraDevice = camera;
             takePictureBtn.setVisibility(View.VISIBLE);
             cameraBackBtn.setVisibility(View.VISIBLE);
             textureView.setVisibility(View.VISIBLE);
@@ -237,15 +262,20 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         cameraBtn = findViewById(R.id.cameraBtn);
         takePictureBtn = findViewById(R.id.takePictureBtn);
         cameraBackBtn = findViewById(R.id.cameraBackBtn);
+        confirmBtn = findViewById(R.id.confirmBtn);
+
         overview = findViewById(R.id.overviewText);
         dashboardLabel = findViewById(R.id.dashboardLabel);
         addMonthlyInfoFragment = findViewById(R.id.monthlyInfoFragment);
         textureView = findViewById(R.id.textureView);
+        annotatedImage = findViewById(R.id.imageView);
 
         // Setting some views to be initially invisible
         cameraBtn.setVisibility(View.INVISIBLE);
         takePictureBtn.setVisibility(View.INVISIBLE);
         cameraBackBtn.setVisibility(View.INVISIBLE);
+        annotatedImage.setVisibility(View.INVISIBLE);
+        confirmBtn.setVisibility(View.INVISIBLE);
 
         backgroundThread = new HandlerThread("Camera Background");
         backgroundThread.start();
@@ -293,7 +323,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
                 // Button the user clicks to turn on the camera
                 if (CameraHelper.checkCameraHardware(MainActivity.this)) {
                     CameraManager cameraManager = (CameraManager) MainActivity.this.getSystemService(Context.CAMERA_SERVICE);
-                    String rearCameraId = CameraHelper.getRearCameraId(MainActivity.this);
+                    String rearCameraId = CameraHelper.getRearCameraId(MainActivity.this, cameraManager);
                     if (rearCameraId != null) {
                         // Check for camera permissions. If permission is not granted, request it
                         if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
@@ -324,12 +354,13 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         cameraBackBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                cameraDevice.close();
-                cameraDevice = null;
-                textureView.setVisibility(View.INVISIBLE);
-                takePictureBtn.setVisibility(View.INVISIBLE);
-                cameraBackBtn.setVisibility(View.INVISIBLE);
-                unhideMainUI();
+                exitCamera();
+            }
+        });
+        confirmBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                confirmAmount(total);
             }
         });
         // Requesting notification permissions if permissions are not allowed
@@ -341,12 +372,23 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         initializeDatabase();
     }
 
+    public void exitCamera() {
+        cameraDevice.close();
+        cameraDevice = null;
+        textureView.setVisibility(View.INVISIBLE);
+        takePictureBtn.setVisibility(View.INVISIBLE);
+        cameraBackBtn.setVisibility(View.INVISIBLE);
+        annotatedImage.setVisibility(View.INVISIBLE);
+        confirmBtn.setVisibility(View.INVISIBLE);
+        unhideMainUI();
+    }
+
     public void createCameraPreview() {
         SurfaceTexture texture = textureView.getSurfaceTexture();
         try {
             if (texture == null) {
                 Log.i("Surface texture", "Couldn't obtain surface texture");
-                Toast.makeText(MainActivity.this, "Coudln't obtain surface texture", Toast.LENGTH_LONG).show();
+                Toast.makeText(MainActivity.this, "Couldn't obtain surface texture", Toast.LENGTH_LONG).show();
                 return;
             }
 
@@ -369,9 +411,8 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
 
                 @Override
                 public void onConfigureFailed(@NonNull CameraCaptureSession session) {
-
                 }
-            }, null);
+            }, backgroundHandler);
 
         } catch (CameraAccessException e) {
             e.printStackTrace();
@@ -391,6 +432,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         }
     }
 
+    @SuppressLint("NewAPI")
     public void takePicture() {
         if (cameraDevice == null) {
             Log.i("Camera Device", "Camera is null");
@@ -420,20 +462,11 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
 
             rotation = getWindowManager().getDefaultDisplay().getRotation();
             Log.i("Rotation", "Rotation=" + rotation);
-            switch(rotation) {
-                case 0:
-                    captureRequest.set(CaptureRequest.JPEG_ORIENTATION, Surface.ROTATION_90);
-                    break;
-                case 90:
-                    captureRequest.set(CaptureRequest.JPEG_ORIENTATION, Surface.ROTATION_0);
-                    break;
-                case 180:
-                    captureRequest.set(CaptureRequest.JPEG_ORIENTATION, Surface.ROTATION_270);
-                    break;
-                case 270:
-                    captureRequest.set(CaptureRequest.JPEG_ORIENTATION, Surface.ROTATION_180);
-                    break;
-            }
+            int rotationCompensation = ORIENTATIONS.get(rotation);
+            int sensorOrientation = cameraManager.getCameraCharacteristics(cameraDevice.getId()).get(CameraCharacteristics.SENSOR_ORIENTATION);
+
+            // Back-facing camera rotation calculation
+            rotation = (sensorOrientation - rotationCompensation + 360) % 360;
 
             ImageReader.OnImageAvailableListener imageListener = new ImageReader.OnImageAvailableListener() {
                 @Override
@@ -447,6 +480,24 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
                         byte bytes[] = new byte[buffer.capacity()];
                         buffer.get(bytes);
                         save(bytes);
+                        Bitmap bitmap = BitmapFactory.decodeByteArray(bytes.clone(), 0, bytes.length, null);
+
+                        // Obtain an InputImage object, which will will be fed to the ML Kit OCR to extract text from the image
+                        InputImage mediaImage = InputImage.fromMediaImage(image, 0);
+                        extractImageText(mediaImage, bitmap, new ImageTextCallback() {
+                            @Override
+                            public double onImageTextAvailable(String text) {
+                                imageText = text;
+
+                                // Obtain a list of all doubles present within the receipt image using regex
+                                List<Double> receiptValues = ImageText.processImageText(imageText);
+
+                                // Go through the list and find the max value, which represents the total amount of the receipt
+                                double total_amount = ImageText.get_total(receiptValues);
+                                Log.i("Receipt Total", "Total=" + total_amount);
+                                return total_amount;
+                            }
+                        });
                     } catch (FileNotFoundException e) {
                         e.printStackTrace();
                     } catch (IOException e) {
@@ -494,10 +545,10 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         File imageFile = null;
         if (!imageDirectory.exists()) {
             if (imageDirectory.mkdirs()) {
-                Toast.makeText(this, "Created images folder. Image can be found in the 'Images' folder", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, "Created images folder. Image can be found in the 'Images' folder", Toast.LENGTH_SHORT).show();
                 imageFile = new File(imageDirectory, "receipt_img.jpg");
             } else {
-                Toast.makeText(this, "Couldn't create 'Images' folder, saving image to root instead", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, "Couldn't create 'Images' folder, saving image to root instead", Toast.LENGTH_SHORT).show();
                 imageFile = new File(getExternalFilesDir(null), "receipt_img.jpg");
             }
         } else {
@@ -505,12 +556,103 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         }
         FileOutputStream outputStream = new FileOutputStream(imageFile);
 
+
         try {
             outputStream.write(bytes);
-            Toast.makeText(this, "Successfully saved image", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Successfully saved image", Toast.LENGTH_SHORT).show();
         } finally {
             outputStream.close();
         }
+    }
+
+    // Image is fed through optical character recognition (OCR) from ML Kit to obtain a String value from an image
+    public void extractImageText(InputImage mediaImage, Bitmap bitmap, ImageTextCallback callback) {
+        TextRecognizer recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
+        Task<Text> result = recognizer.process(mediaImage).addOnSuccessListener(new OnSuccessListener<Text>() {
+            @Override
+            public void onSuccess(Text text) {
+                // Pass the resulting text produced by OCR to ImageTextCallback, returns the total amount that was extracted from the receipt image
+                total = callback.onImageTextAvailable(text.getText());
+
+                List<Text.TextBlock> textBlocks = text.getTextBlocks();
+                Bitmap annotatedBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true);
+                Canvas canvas = new Canvas(annotatedBitmap);
+                Paint paint = new Paint();
+                paint.setColor(Color.GREEN);
+                paint.setStyle(Paint.Style.STROKE);
+                paint.setStrokeWidth(15);
+                boolean foundTotal = false;
+
+                // Loop through all TextBlocks, and within each TextBlock, loop through all TextLines
+                // to find a line of text that matches the amount
+                for (int i = 0; i < textBlocks.size(); i++) {
+                    List<Text.Line> textLines = textBlocks.get(i).getLines();
+                    for (int j = 0; j < textLines.size(); j++) {
+                        if (textLines.get(j).getText().contains(Double.toString(total))) {
+                            // Matching TextLine has been found, draw a rectangle around the line
+                            Rect r = textLines.get(j).getBoundingBox();
+                            canvas.drawRect(r, paint);
+
+                            // Matching line was found, we don't need to loop through any further, so break
+                            foundTotal = true;
+                            break;
+                        }
+                    }
+                    if (foundTotal) {
+                        break;
+                    }
+                }
+
+                // On a separate UI thread, change visibility of views to display the image that was captured by the user
+                // along with the resulting rectangle that was drawn
+                Handler handler = new Handler(Looper.getMainLooper());
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        annotatedImage.setImageBitmap(annotatedBitmap);
+                        annotatedImage.setRotation(90);
+                        annotatedImage.setVisibility(View.VISIBLE);
+                        confirmBtn.setVisibility(View.VISIBLE);
+                        textureView.setVisibility(View.INVISIBLE);
+                        takePictureBtn.setVisibility(View.INVISIBLE);
+
+                        Toast.makeText(MainActivity.this, "Text extraction successful, please confirm the receipt total amount", Toast.LENGTH_LONG).show();
+                    }
+                });
+                Log.i("Image Text Extraction Success:", "Text=" + text.getText());
+            }
+        }).addOnFailureListener(new OnFailureListener() {
+            @Override
+            public void onFailure(@NonNull Exception e) { e.printStackTrace(); }
+        });
+    }
+
+    public void confirmAmount(double amount) {
+        AmountConfirmationDialog confirmationDialog = new AmountConfirmationDialog(amount);
+        confirmationDialog.show(getSupportFragmentManager(), "CONFIRMATION");
+    }
+
+    @Override
+    @SuppressLint("NewAPI")
+    public void createEvent(double amount) {
+        CalendarHelper.insertEvent(monthlyMapping, new ExpensesEvent(amount, 0, LocalDate.now()), MainActivity.this);
+        sumEventsInCurrentMonth();
+        overview.setText(String.join("",generateUpdatedText(expenses, income, budget, deadlineCount)));
+        AsyncTask.execute(new Runnable() {
+            @Override
+            public void run() {
+                LocalDate currentDate = LocalDate.now();
+                CalendarEventsDAO dao = new CalendarEventsDAO_Impl(db);
+                CalendarEventsEntity entity = new CalendarEventsEntity();
+                entity.month = currentDate.getMonthValue();
+                entity.day = currentDate.getDayOfMonth();
+                entity.year = currentDate.getYear();
+                entity.expense = amount;
+                entity.income = 0;
+                dao.insert(entity);
+            }
+        });
+        exitCamera();
     }
 
     @Override
@@ -518,10 +660,10 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         super.onBackPressed();
         if (monthlyInfoFragmentActive) {
             monthlyInfoFragmentActive = false;
-            double expenses = monthlyInfo.getExpenses();
-            double income = monthlyInfo.getIncome();
+            double expenses = monthlyInfo.getExpensesInput();
+            double income = monthlyInfo.getIncomeInput();
             if (expenses >= 0 && income >= 0) {
-                monthlyInfo.getMonthlyDataPasser().onDataPassed(monthlyInfo.getExpenses(), monthlyInfo.getIncome());
+                monthlyInfo.getMonthlyDataPasser().onDataPassed(monthlyInfo.getExpensesInput(), monthlyInfo.getIncomeInput());
             }
             getSupportFragmentManager().popBackStack();
             unhideMainUI();
@@ -637,34 +779,12 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
                 LocalDate date = LocalDate.of(year, month, day);
                 netExpenseFromCalendar += expenses;
                 netIncomeFromCalendar += income;
-                if (monthlyMapping.containsKey(month)) {
-                    HashMap<LocalDate, ArrayList<CalendarEvent>> monthlyEvents = monthlyMapping.get(month);
-                    if (monthlyEvents.containsKey(date)) {
-                        if (income == 0) {
-                            monthlyEvents.get(date).add(new ExpensesEvent(expenses, income, date));
-                        } else {
-                            monthlyEvents.get(date).add(new IncomeEvent(expenses, income, date));
-                        }
-                    } else {
-                        ArrayList<CalendarEvent> dayEvents = new ArrayList<CalendarEvent>();
-                        if (income == 0) {
-                            dayEvents.add(new ExpensesEvent(expenses, income, date));
-                        } else {
-                            dayEvents.add(new IncomeEvent(expenses, income,date));
-                        }
-                        monthlyEvents.put(date, dayEvents);
-                        monthlyMapping.put(month, monthlyEvents);
-                    }
+                if (income == 0) {
+                    ExpensesEvent event = new ExpensesEvent(expenses, income, date);
+                    CalendarHelper.insertEvent(monthlyMapping, event, MainActivity.this);
                 } else {
-                    HashMap<LocalDate, ArrayList<CalendarEvent>> eventsInMonth = new HashMap<LocalDate, ArrayList<CalendarEvent>>();
-                    ArrayList<CalendarEvent> dayEvents = new ArrayList<CalendarEvent>();
-                    if (income == 0) {
-                        dayEvents.add(new ExpensesEvent(expenses, income, date));
-                    } else {
-                        dayEvents.add(new IncomeEvent(expenses, income, date));
-                    }
-                    eventsInMonth.put(date, dayEvents);
-                    monthlyMapping.put(month, eventsInMonth);
+                    IncomeEvent event = new IncomeEvent(expenses, income, date);
+                    CalendarHelper.insertEvent(monthlyMapping, event, MainActivity.this);
                 }
             }
             additionalExpensesFromCalendar = netExpenseFromCalendar - additionalExpensesFromCalendar;
@@ -780,7 +900,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
                 long triggerTime = endDate.getTimeInMillis() - System.currentTimeMillis();
                 Log.i("Trigger time", "Trigger time=" + triggerTime);
 
-                alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + 10000, pIntent);
+                alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + triggerTime, pIntent);
             }
         });
 
@@ -1026,7 +1146,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
             if (currentMonthEvents != null && !currentMonthEvents.isEmpty()) {
                 for (Map.Entry<LocalDate, ArrayList<CalendarEvent>> entry : currentMonthEvents.entrySet()) {
                     ArrayList<CalendarEvent> events = entry.getValue();
-                    ArrayList<Double> dayExpensesAndIncome = CalendarFragment.calculateTotalBudget(events);
+                    ArrayList<Double> dayExpensesAndIncome = CalendarHelper.calculateTotalBudget(events);
                     for (int i = 0; i < events.size(); i++) {
                         notificationsEnabled = true;
                         if (events.get(i) instanceof ExpensesEvent) {
@@ -1065,7 +1185,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         String[] res = new String[7];
         res[0] = "Monthly Expenses: $" + expenses;
         res[1] = "\nMonthly Income: $" + income;
-        res[2] = "\nAdditional Expenses From Calendar: $" + netExpenseFromCalendar;
+        res[2] = "\nAdditional Expenses From Calendar: $" + Math.round(netExpenseFromCalendar * 100.0) / 100.0;
         res[3] = "\nAdditional Income From Calendar: $" + netIncomeFromCalendar;
         res[4] = "\nAdditional Budget From Calendar: $" + Math.round((netIncomeFromCalendar - netExpenseFromCalendar) * 100.0) / 100.0;
         res[5] = "\nTotal Available Budget: $" + budget;
@@ -1103,7 +1223,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         return deadlines;
     }
 
-// Method to clear all data, both monthly and calendar
+    // Method to clear all data, both monthly and calendar (all months)
     public void resetInfo() {
         if (monthlyMapping != null && !monthlyMapping.isEmpty()) {
             monthlyMapping.clear();
