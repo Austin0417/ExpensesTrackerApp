@@ -5,6 +5,8 @@ import com.example.expensestracker.calendar.CalendarEvent;
 import java.time.LocalDate;
 
 public class ExpensesEvent extends CalendarEvent {
+    private ExpenseCategory category = null;
+
     public ExpensesEvent(double expenses, double income, LocalDate date) {
         super(expenses, income, date);
         setIncome(0);
@@ -19,4 +21,8 @@ public class ExpensesEvent extends CalendarEvent {
 
     @Override
     public double getAmount() { return getExpenses(); }
+
+    public ExpenseCategory getCategory() { return category; }
+
+    public void setCategory(ExpenseCategory category) { this.category = category; }
 }

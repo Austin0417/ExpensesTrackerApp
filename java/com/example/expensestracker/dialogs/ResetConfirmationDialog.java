@@ -18,14 +18,14 @@ public class ResetConfirmationDialog extends DialogFragment {
             public void onClick(DialogInterface dialogInterface, int i) {
                 Bundle result = new Bundle();
                 result.putInt("reset", 1);
-                getParentFragmentManager().setFragmentResult("reset", result);
+                getParentFragmentManager().setFragmentResult("monthly_info", result);
             }
         }).setNegativeButton("No", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialogInterface, int i) {
                 Bundle result = new Bundle();
                 result.putInt("reset", 0);
-                getParentFragmentManager().setFragmentResult("reset", result);
+                getParentFragmentManager().setFragmentResult("monthly_info", result);
             }
         });
                 return builder.create();

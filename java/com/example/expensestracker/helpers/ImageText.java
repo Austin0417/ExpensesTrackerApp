@@ -1,6 +1,9 @@
 package com.example.expensestracker.helpers;
 
+import android.util.Log;
+
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -17,13 +20,25 @@ public class ImageText {
         return res;
     }
 
-    public static Double get_total(List<Double> values) {
-        double max = values.get(0);
-        for (int i = 1; i < values.size(); i++) {
-            if (values.get(i) > max) {
-                max = values.get(i);
-            }
+    public static Double get_total(List<Double> values, boolean takeSecondHighest) {
+        if (values.size() < 2) {
+            return (double) -1;
         }
-        return max;
+        Collections.sort(values, Collections.reverseOrder());
+        if (!takeSecondHighest) {
+            Log.i("IMAGE TEXT", "No cash keyword found, selecting highest value...");
+            return values.get(0);
+        } else {
+            Log.i("IMAGE TEXT", "Cash keyword found, selecting second highest...");
+            return values.get(1);
+        }
+    }
+
+    public static boolean shouldTakeSecondMax(String imageText) {
+        if (imageText.toUpperCase().contains("CASH") || imageText.toUpperCase().contains("CHANGE")) {
+            return true;
+        } else {
+            return false;
+        }
     }
 }

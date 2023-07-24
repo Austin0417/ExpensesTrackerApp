@@ -22,12 +22,11 @@ import android.widget.TextView;
 
 import com.example.expensestracker.R;
 import com.example.expensestracker.calendar.CalendarEvent;
+import com.example.expensestracker.calendar.ExpenseCategory;
 
-/**
- * A simple {@link Fragment} subclass.
- * Use the {@link CalendarDialogFragment#newInstance} factory method to
- * create an instance of this fragment.
- */
+import java.util.List;
+
+
 public class CalendarDialogFragment extends DialogFragment implements AdapterView.OnItemSelectedListener {
 
     // TODO: Rename parameter arguments, choose names that match
@@ -48,6 +47,7 @@ public class CalendarDialogFragment extends DialogFragment implements AdapterVie
     private EditText deadlineText;
     private EditText deadlineDescription;
 
+    private Spinner categorySelection;
     private Spinner hourSelection;
     private Spinner am_pm_selection;
     private Spinner minuteSelection;
@@ -56,12 +56,14 @@ public class CalendarDialogFragment extends DialogFragment implements AdapterVie
 
     private String type;
 
+    private List<ExpenseCategory> categories;
+
     private int hourForDeadline;
     private int minuteForDeadline;
     private int am_pm_selection_for_deadline;
 
-    public CalendarDialogFragment() {
-        // Required empty public constructor
+    public CalendarDialogFragment(List<ExpenseCategory> categories) {
+        this.categories = categories;
     }
 
     @Override
@@ -86,6 +88,8 @@ public class CalendarDialogFragment extends DialogFragment implements AdapterVie
                 minuteForDeadline = Integer.parseInt(minute);
                 Log.i("Deadline Selection", "Minute=" + minuteForDeadline);
                 break;
+            case R.id.categorySelection:
+
         }
     }
 
@@ -106,30 +110,48 @@ public class CalendarDialogFragment extends DialogFragment implements AdapterVie
         additionalExpenses = dialogView.findViewById(R.id.expensesInput);
         deadlineText = dialogView.findViewById(R.id.deadlineInput);
         deadlineDescription = dialogView.findViewById(R.id.deadlineInfo);
+        categorySelection = dialogView.findViewById(R.id.categorySelection);
         hourSelection = dialogView.findViewById(R.id.hourSelection);
         minuteSelection = dialogView.findViewById(R.id.minuteSelection);
         am_pm_selection = dialogView.findViewById(R.id.am_pm_selection);
 
+        // Initializing selection options for the hour spinner
         ArrayAdapter<String> hourSelectionAdapter = new ArrayAdapter<String>(getContext(),
                 android.R.layout.simple_spinner_item,
                 new String[]{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"});
         hourSelectionAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         hourSelection.setAdapter(hourSelectionAdapter);
+
+        // Initializing selection options for the minute spinner
         ArrayAdapter<String> minuteSelectionAdapter = new ArrayAdapter<String>(getContext(), android.R.layout.simple_spinner_item, new String[]{":00", ":15", ":30", ":45"});
         minuteSelection.setAdapter(minuteSelectionAdapter);
+
+        // Initializing selection options for the AM/PM spinner
         ArrayAdapter<String> am_pm_adapter = new ArrayAdapter<String>(getContext(), android.R.layout.simple_spinner_item, new String[]{"AM", "PM"});
         am_pm_adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         am_pm_selection.setAdapter(am_pm_adapter);
 
+        // Initializing selection options for category selection spinner
+        String category_options[] = new String[categories.size() + 1];
+        category_options[category_options.length - 1] = "Other";
+        for (int i = 0; i < categories.size(); i++) {
+            category_options[i] = categories.get(i).getName();
+        }
+        ArrayAdapter<String> categoryAdapter = new ArrayAdapter<String>(getContext(), android.R.layout.simple_spinner_item, category_options);
+        categoryAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        categorySelection.setAdapter(categoryAdapter);
+
         hourSelection.setOnItemSelectedListener(this);
         am_pm_selection.setOnItemSelectedListener(this);
         minuteSelection.setOnItemSelectedListener(this);
+        categorySelection.setOnItemSelectedListener(this);
 
         // Initial state when the CalendarDialog is created, we hide everything except the list of choices
         deadlineDescription.setVisibility(View.GONE);
         additionalIncome.setVisibility(View.GONE);
         additionalExpenses.setVisibility(View.GONE);
         deadlineText.setVisibility(View.GONE);
+        categorySelection.setVisibility(View.GONE);
         hourSelection.setVisibility(View.GONE);
         minuteSelection.setVisibility(View.GONE);
         am_pm_selection.setVisibility(View.GONE);
@@ -184,6 +206,7 @@ public class CalendarDialogFragment extends DialogFragment implements AdapterVie
                 if (which == 0) {
                     // If the user has selected ExpenseEvent
                     additionalExpenses.setVisibility(View.VISIBLE);
+                    categorySelection.setVisibility(View.VISIBLE);
                     additionalIncome.setVisibility(View.GONE);
                     deadlineText.setVisibility(View.GONE);
                     deadlineDescription.setVisibility(View.GONE);
@@ -200,6 +223,7 @@ public class CalendarDialogFragment extends DialogFragment implements AdapterVie
                     hourSelection.setVisibility(View.GONE);
                     am_pm_selection.setVisibility(View.GONE);
                     minuteSelection.setVisibility(View.GONE);
+                    categorySelection.setVisibility(View.GONE);
                     type = "income";
                 } else {
                     // The user has selected DeadlineEvent
@@ -210,20 +234,14 @@ public class CalendarDialogFragment extends DialogFragment implements AdapterVie
                     minuteSelection.setVisibility(View.VISIBLE);
                     additionalIncome.setVisibility(View.GONE);
                     additionalExpenses.setVisibility(View.GONE);
+                    categorySelection.setVisibility(View.GONE);
                     type = "deadline";
                 }
             }
         });
                 return builder.create();
     }
-    public static CalendarDialogFragment newInstance(String param1, String param2) {
-        CalendarDialogFragment fragment = new CalendarDialogFragment();
-        Bundle args = new Bundle();
-        args.putString(ARG_PARAM1, param1);
-        args.putString(ARG_PARAM2, param2);
-        fragment.setArguments(args);
-        return fragment;
-    }
+
 
     @Override
     public void onCreate(Bundle savedInstanceState) {

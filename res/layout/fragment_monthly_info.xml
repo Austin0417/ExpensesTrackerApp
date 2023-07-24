@@ -7,53 +7,115 @@
     android:layout_height="match_parent"
     tools:context=".monthlyinfo.MonthlyInfoFragment">
 
-    <EditText
-        android:id="@+id/monthlyExpenses"
-        android:layout_width="305dp"
-        android:layout_height="218dp"
-        android:layout_marginStart="16dp"
-        android:layout_marginEnd="16dp"
-        android:ems="10"
-        android:hint="Enter monthly expenses"
-        android:inputType="numberDecimal"
-        android:digits="0123456789."
-        app:layout_constraintBottom_toTopOf="@+id/monthlyIncome"
+
+    <Button
+        android:id="@+id/addExpenseBtn"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="52dp"
+        android:layout_marginEnd="116dp"
+        android:text="Add Expense"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
+        app:layout_constraintTop_toTopOf="parent" />
 
     <EditText
         android:id="@+id/monthlyIncome"
-        android:layout_width="307dp"
-        android:layout_height="194dp"
-        android:layout_marginStart="14dp"
-        android:layout_marginTop="290dp"
-        android:layout_marginEnd="14dp"
+        android:layout_width="344dp"
+        android:layout_height="66dp"
+        android:layout_marginTop="39dp"
+        android:layout_marginBottom="55dp"
+        android:digits="0123456789."
         android:ems="10"
         android:hint="Enter monthly income"
         android:inputType="numberDecimal"
-        android:digits="0123456789."
+        app:layout_constraintBottom_toTopOf="@+id/dropDownArrow"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="@+id/textView2" />
 
-    <Button
-        android:id="@+id/backBtn"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="68dp"
-        android:layout_marginTop="28dp"
-        android:text="Back"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/monthlyIncome" />
+    <TextView
+        android:id="@+id/expensesListLabel"
+        android:layout_width="240dp"
+        android:layout_height="23dp"
+        android:text="View Expenses"
+        android:textColor="@color/red"
+        android:textSize="19sp"
+        app:layout_constraintBottom_toBottomOf="@+id/dropDownArrow"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/dropDownArrow"
+        app:layout_constraintTop_toTopOf="@+id/dropDownArrow" />
+
+    <EditText
+        android:id="@+id/monthlyExpenses"
+        android:layout_width="0dp"
+        android:layout_height="47dp"
+        android:layout_marginStart="1dp"
+        android:digits="0123456789."
+        android:ems="10"
+        android:hint="Enter monthly expenses"
+        android:inputType="numberDecimal"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="1.0"
+        app:layout_constraintStart_toStartOf="@+id/textView2"
+        tools:layout_editor_absoluteY="107dp" />
 
     <Button
         android:id="@+id/resetBtn"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="28dp"
-        android:layout_marginEnd="44dp"
+        android:layout_marginTop="20dp"
+        android:layout_marginEnd="12dp"
         android:text="Reset"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/monthlyIncome" />
+        app:layout_constraintTop_toBottomOf="@+id/expensesListView" />
+
+    <TextView
+        android:id="@+id/textView2"
+        android:layout_width="0dp"
+        android:layout_height="35dp"
+        android:layout_marginStart="1dp"
+        android:layout_marginEnd="1dp"
+        android:layout_marginBottom="124dp"
+        android:text="Monthly Income:"
+        android:textSize="18sp"
+        app:layout_constraintBottom_toBottomOf="@+id/dropDownArrow"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="@+id/monthlyIncome" />
+
+    <Button
+        android:id="@+id/backBtn"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:text="Back"
+        app:layout_constraintBottom_toBottomOf="@+id/resetBtn"
+        app:layout_constraintEnd_toEndOf="@+id/dropDownArrow"
+        app:layout_constraintTop_toBottomOf="@+id/expensesListView"
+        app:layout_constraintVertical_bias="0.0" />
+
+    <ImageView
+        android:id="@+id/dropDownArrow"
+        android:layout_width="144dp"
+        android:layout_height="19dp"
+        android:layout_marginStart="22dp"
+        android:layout_marginBottom="24dp"
+        android:src="@drawable/expenses_list_arrow_right"
+        app:layout_constraintBottom_toTopOf="@+id/expensesListView"
+        app:layout_constraintEnd_toStartOf="@+id/expensesListLabel"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@id/expensesListView"
+        android:layout_width="0dp"
+        android:layout_height="98dp"
+        android:layout_marginStart="36dp"
+        android:layout_marginEnd="32dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="@+id/expensesListLabel"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="@+id/backBtn"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.45" />
+
 
 </androidx.constraintlayout.widget.ConstraintLayout>

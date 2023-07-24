@@ -32,6 +32,7 @@ import com.example.expensestracker.R;
 import com.example.expensestracker.dialogs.CalendarDialogFragment;
 import com.example.expensestracker.dialogs.ClearDialog;
 import com.example.expensestracker.dialogs.DeadlineDialog;
+import com.example.expensestracker.dialogs.ExpenseCategoryDialog;
 import com.example.expensestracker.helpers.CalendarHelper;
 import com.prolificinteractive.materialcalendarview.CalendarDay;
 import com.prolificinteractive.materialcalendarview.MaterialCalendarView;
@@ -43,6 +44,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -70,6 +72,7 @@ public class CalendarFragment extends Fragment {
     private Button exitBtn;
     private Button deadlineBtn;
     private Button clearBtn;
+    private Button categoryBtn;
     private MaterialCalendarView calendar;
     private CalendarDataPass dataPasser;
     private RecyclerView list;
@@ -90,6 +93,8 @@ public class CalendarFragment extends Fragment {
 
     // Simple ArrayList that will keep track of all deadlines, specific date of the deadline is not important
     private ArrayList<DeadlineEvent> deadlines;
+
+    private List<ExpenseCategory> expenseCategories = new ArrayList<ExpenseCategory>();
 
 
     public CalendarFragment() {
@@ -151,6 +156,7 @@ public class CalendarFragment extends Fragment {
                 double data[] = result.getDoubleArray("calendarevent");
                 boolean clearSelections[] = result.getBooleanArray("buttons_selected");
                 String deadlineDescription = result.getString("deadline_description");
+                String category_name = result.getString("category_name");
                 // Either data or clearSelections must be null, only one of these arrays can be non-null at any given onFragmentResult callback
                 // If data is not null, this indicates the user has created an event (either Expense or Income) on the Calendar. Data will contain the relevant values to construct the object
                 // If clearSelections is not null, this indicates the user has clicked clearBtn.
@@ -264,6 +270,7 @@ public class CalendarFragment extends Fragment {
                                 entity.income = data[1];
                                 dao.insert(entity);
                                 Log.i("Database insertion", "Expense event inserted!");
+
                             }
                         });
 
@@ -287,8 +294,12 @@ public class CalendarFragment extends Fragment {
                                 Log.i("Database insertion", "Income event inserted!");
                             }
                         });
-
                     }
+                }
+
+                if (category_name != null) {
+                    Log.i("CATEGORY NAME", "Name=" + category_name);
+                    expenseCategories.add(new ExpenseCategory(category_name));
                 }
 
                 // After every onFragmentResult, call the onCalendarDataPassed callback in MainActivity
@@ -313,6 +324,7 @@ public class CalendarFragment extends Fragment {
         exitBtn = v.findViewById(R.id.exitBtn);
         deadlineBtn = v.findViewById(R.id.deadlineBtn);
         clearBtn = v.findViewById(R.id.clearBtn);
+        categoryBtn = v.findViewById(R.id.categoryBtn);
         calendar = v.findViewById(R.id.calendarView);
         list = v.findViewById(R.id.recyclerView);
 
@@ -354,7 +366,7 @@ public class CalendarFragment extends Fragment {
 
                 // Create a CalendarDialogFragment dialog and display it
                 // The CalendarDialogFragment will provide a dialog box where the user can set the type of CalendarEvent they wish to create, amount, and information of the event
-                CalendarDialogFragment dialog = new CalendarDialogFragment();
+                CalendarDialogFragment dialog = new CalendarDialogFragment(expenseCategories);
                 dialog.show(getParentFragmentManager(), "Add additional expenses/income");
             }
         });
@@ -376,6 +388,13 @@ public class CalendarFragment extends Fragment {
                 // The ClearDialog has checkboxes for CalendarEvents and DeadlineEvents, allowing users which types of events they wish to clear
                 ClearDialog clearDialog = new ClearDialog();
                 clearDialog.show(getParentFragmentManager(), "Clear");
+            }
+        });
+        categoryBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                ExpenseCategoryDialog dialog = new ExpenseCategoryDialog();
+                dialog.show(getParentFragmentManager(), "CREATE_CATEGORY");
             }
         });
         return v;

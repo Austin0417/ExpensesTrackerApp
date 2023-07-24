@@ -65,11 +65,14 @@ import com.example.expensestracker.dialogs.AmountConfirmationDialog;
 import com.example.expensestracker.dialogs.DeadlineDialog;
 import com.example.expensestracker.dialogs.EditDeadlineDialog;
 import com.example.expensestracker.dialogs.EditEventDialog;
+import com.example.expensestracker.dialogs.EditExpenseDialog;
 import com.example.expensestracker.helpers.CalendarHelper;
 import com.example.expensestracker.helpers.CameraHelper;
 import com.example.expensestracker.helpers.CreateEventFromImage;
 import com.example.expensestracker.helpers.ImageText;
 import com.example.expensestracker.helpers.ImageTextCallback;
+import com.example.expensestracker.monthlyinfo.MonthlyExpense;
+import com.example.expensestracker.monthlyinfo.MonthlyExpenseDAO;
 import com.example.expensestracker.monthlyinfo.MonthlyInfoEntity;
 import com.example.expensestracker.monthlyinfo.MonthlyInfoFragment;
 import com.example.expensestracker.notifications.AlarmReceiver;
@@ -143,6 +146,8 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     // Simple ArrayList<DeadlineEvent> which stores all user added deadlines, regardless of month
     private ArrayList<DeadlineEvent> deadlines;
 
+    private List<MonthlyExpense> monthlyExpenses = new ArrayList<MonthlyExpense>();
+
     // HashMap data structure that holds the specific id and Intent object for each deadline, will be used for cancelling alarms
     // The id (key) is the integer value passed into the 'requestCode' argument of PendingIntent, and Intent (value) is the intent object used in the PendingIntent
     private HashMap<Integer, Intent> deadlineIntentMapping = new HashMap<Integer, Intent>();
@@ -156,7 +161,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     // Allows us to call methods such as updating UI and syncing data from the MainActivity
     private CalendarFragment calendar;
     private DeadlineDialog deadlineDialog;
-    private MonthlyInfoFragment monthlyInfo = new MonthlyInfoFragment(expenses, income);
+    private MonthlyInfoFragment monthlyInfo;
 
     // Data members for interacting with Camera2 API
     private TextureView textureView;
@@ -308,6 +313,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         initializeBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                monthlyInfo = new MonthlyInfoFragment(expenses, income, monthlyExpenses);
                 hideMainUI();
                 monthlyInfoFragmentActive = true;
                 calendarEventFragmentActive = false;
@@ -335,7 +341,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
                                 e.printStackTrace();
                             }
                         } else {
-                            ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.CAMERA}, CAMERA_STATUS_CODE);
+                            ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE}, CAMERA_STATUS_CODE);
                         }
                     } else {
                         Toast.makeText(MainActivity.this, "No rear camera detected", Toast.LENGTH_LONG).show();
@@ -482,7 +488,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
                         save(bytes);
                         Bitmap bitmap = BitmapFactory.decodeByteArray(bytes.clone(), 0, bytes.length, null);
 
-                        // Obtain an InputImage object, which will will be fed to the ML Kit OCR to extract text from the image
+                        // Obtain an InputImage object from the existing Image object, which will will be fed to the ML Kit OCR to extract text from the image
                         InputImage mediaImage = InputImage.fromMediaImage(image, 0);
                         extractImageText(mediaImage, bitmap, new ImageTextCallback() {
                             @Override
@@ -493,7 +499,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
                                 List<Double> receiptValues = ImageText.processImageText(imageText);
 
                                 // Go through the list and find the max value, which represents the total amount of the receipt
-                                double total_amount = ImageText.get_total(receiptValues);
+                                double total_amount = ImageText.get_total(receiptValues, ImageText.shouldTakeSecondMax(imageText));
                                 Log.i("Receipt Total", "Total=" + total_amount);
                                 return total_amount;
                             }
@@ -573,6 +579,11 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
             public void onSuccess(Text text) {
                 // Pass the resulting text produced by OCR to ImageTextCallback, returns the total amount that was extracted from the receipt image
                 total = callback.onImageTextAvailable(text.getText());
+                if (total < 0) {
+                    Toast.makeText(MainActivity.this, "Couldn't recognize receipt image, please try again!", Toast.LENGTH_LONG).show();
+                    exitCamera();
+                    return;
+                }
 
                 List<Text.TextBlock> textBlocks = text.getTextBlocks();
                 Bitmap annotatedBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true);
@@ -619,7 +630,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
                         Toast.makeText(MainActivity.this, "Text extraction successful, please confirm the receipt total amount", Toast.LENGTH_LONG).show();
                     }
                 });
-                Log.i("Image Text Extraction Success:", "Text=" + text.getText());
+                Log.i("IMAGE TEXT", "Text=" + text.getText());
             }
         }).addOnFailureListener(new OnFailureListener() {
             @Override
@@ -675,33 +686,39 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         }
     }
 
-
     public void initializeDatabase() {
         db = Room.databaseBuilder(getApplicationContext(), ExpensesTrackerDatabase.class, "ExpensesTracker").build();
         Log.i("Database creation", "Success!");
 
         // CountDownLatch for synchronization to ensure that retrieving deadlines from the database is completed first, before checking for pending DeadlineEvents in deletePassedDeadlines
-        CountDownLatch latch = new CountDownLatch(3);
+        CountDownLatch secondLatch = new CountDownLatch(3);
         AsyncTask.execute(new Runnable() {
             @Override
             public void run() {
-                retrieveMonthlyInfoFromDatabase(latch);
-                retrieveCalendarEventsFromDatabase(latch);
-                retrieveDeadlinesFromDatabase(latch);
+                retrieveMonthlyInfoFromDatabase(secondLatch);
+                retrieveMonthlyExpensesFromDatabase();
+                retrieveCalendarEventsFromDatabase(secondLatch);
+                retrieveDeadlinesFromDatabase(secondLatch);
             }
         });
         try {
-            latch.await();
+            secondLatch.await();
         } catch (InterruptedException e) {
             e.printStackTrace();
             throw new RuntimeException(e);
         }
-
         deletePassedDeadlines();
     }
 
     public void setDeadlineDialog(DeadlineDialog dialog) {
         deadlineDialog = dialog;
+    }
+
+    // Retrieves list of MonthlyExpenses from the database
+    public void retrieveMonthlyExpensesFromDatabase() {
+        MonthlyExpenseDAO dao = db.monthlyExpenseDAO();
+        monthlyExpenses = dao.getMonthlyExpenses();
+        Log.i("MONTHLY INFO", "# of expenses=" + monthlyExpenses.size());
     }
 
     // Grabs monthly expense and income value from previous state
@@ -836,6 +853,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
             editor.apply();
             overview.setText(String.join("", generateUpdatedText(expenses, income, budget, deadlines.size())));
         } else {
+            overview.setText(String.join("", generateUpdatedText(expenses, income, budget, 0)));
             Log.i("Deadlines", "No deadlines were set");
         }
     }
@@ -935,6 +953,83 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
                 Log.i("Monthly Info DAO", "Successfully inserted new data");
             }
         });
+    }
+
+    @Override
+    public void passMonthlyExpenseList(List<MonthlyExpense> monthlyExpenses) {
+        this.monthlyExpenses = monthlyExpenses;
+    }
+
+    // Implementation of the createExpense method from PassMonthlyData interface; called after the user confirms the creation of a MonthlyExpense
+    @Override
+    public void createExpense(MonthlyExpense expense) {
+        AsyncTask.execute(new Runnable() {
+            @Override
+            public void run() {
+                MonthlyExpenseDAO dao = db.monthlyExpenseDAO();
+                dao.insert(expense);
+                Log.i("MONTHLY EXPENSE", "Successfully inserted MonthlyExpense into database");
+            }
+        });
+    }
+
+    // Called when the user clicks on a MonthlyExpense within the RecyclerView
+    // Displays a dialog fragment with information specific to the selected MonthlyExpense
+    @Override
+    public void openExpenseDialog(MonthlyExpense expense) {
+        Log.i("MONTHLY EXPENSE", "DESCRIPTION=" + expense.getDescription());
+        Log.i("MONTHLY EXPENSE", "AMOUNT=" + expense.getAmount());
+        int index = monthlyExpenses.indexOf(expense);
+        if (index < 0) {
+            Log.i("MONTHLY EXPENSE", "Expense does not exist");
+            return;
+        }
+        EditExpenseDialog dialog = new EditExpenseDialog(expense, index);
+        dialog.show(getSupportFragmentManager(), "EDIT_EXPENSE");
+    }
+
+    // Called when user edits a MonthlyExpense after changing either the description or amount
+    @Override
+    public void updateExpense(String newDescription, double newAmount, MonthlyExpense previousExpense, int index) {
+        String previousDescription = previousExpense.getDescription();
+        double previousAmount = previousExpense.getAmount();
+
+        // Replace the old MonthlyExpense with a new MonthlyExpense object with the updated information
+        monthlyExpenses.set(index, new MonthlyExpense(newDescription, newAmount));
+
+        // Reinitialize MonthlyInfoFragment's list of MonthlyExpenses with the updated list containing the new object
+        if (monthlyInfo != null) {
+            monthlyInfo.setMonthlyExpense(monthlyExpenses);
+            monthlyInfo.updateExpenseAmount(newAmount - previousAmount);
+        }
+
+        AsyncTask.execute(new Runnable() {
+            @Override
+            public void run() {
+                MonthlyExpenseDAO dao = db.monthlyExpenseDAO();
+                dao.updateExpense(newDescription, newAmount, previousDescription, previousAmount);
+            }
+        });
+    }
+
+    // Called when the user clicks confirm on the delete dialog when selecting a MonthlyExpense
+    @Override
+    public void deleteExpense(int index) {
+        MonthlyExpense expenseToDelete = monthlyExpenses.get(index);
+        monthlyExpenses.remove(index);
+
+        if (monthlyInfo != null) {
+            monthlyInfo.setMonthlyExpense(monthlyExpenses);
+            monthlyInfo.updateExpenseAmount(-expenseToDelete.getAmount());
+        }
+        AsyncTask.execute(new Runnable() {
+            @Override
+            public void run() {
+                MonthlyExpenseDAO dao = db.monthlyExpenseDAO();
+                dao.deleteExpense(expenseToDelete.getDescription(), expenseToDelete.getAmount());
+            }
+        });
+        Toast.makeText(MainActivity.this, "Successfully deleted monthly expense", Toast.LENGTH_SHORT).show();
     }
 
     @Override
@@ -1231,6 +1326,9 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         if (deadlines != null && !deadlines.isEmpty()) {
             deadlines.clear();
         }
+        if (monthlyExpenses != null && !monthlyExpenses.isEmpty()) {
+            monthlyExpenses.clear();
+        }
 
         // Database operation that wipes information from all 3 tables (monthly_info, calendar_events, deadline_events)
         // Essentially a full reset of all user-set info
@@ -1241,15 +1339,17 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
                 MonthlyInfoDAO monthlyInfoDAO = db.monthlyInfoDAO();
                 CalendarEventsDAO calendarDAO = db.calendarEventsDAO();
                 DeadlineEventsDAO deadlineDAO = db.deadlineEventsDAO();
+                MonthlyExpenseDAO monthlyExpenseDAO = db.monthlyExpenseDAO();
 
                 // Loop through the deadline id and intent HashMap, cancel all alarms set by alarmManager
                 clearDeadlineAlarms(deadlineDAO);
                 deadlineIntentMapping.clear();
 
-                // Wipe all data from all 3 tables in the Room Database
+                // Wipe all data from all 4 tables in the Room Database
                 monthlyInfoDAO.clearMonthlyInfo();
                 calendarDAO.clearCalendarEvents();
                 deadlineDAO.clearDeadlineEvents();
+                monthlyExpenseDAO.clearMonthlyExpenses();
             }
         });
 
