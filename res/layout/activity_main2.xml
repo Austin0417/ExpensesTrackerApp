@@ -14,12 +14,12 @@
 
     <Button
         android:id="@+id/cameraBtn"
-        android:layout_width="114dp"
+        android:layout_width="wrap_content"
         android:layout_height="49dp"
         android:layout_marginTop="33dp"
         android:textColor="@color/white"
         android:backgroundTint="@color/gray"
-        android:text="Camera"
+        android:text="Scan Receipt"
         app:layout_constraintBottom_toTopOf="@+id/linearLayout"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"

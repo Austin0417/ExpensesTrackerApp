@@ -25,4 +25,15 @@ public class ExpensesEvent extends CalendarEvent {
     public ExpenseCategory getCategory() { return category; }
 
     public void setCategory(ExpenseCategory category) { this.category = category; }
+
+    @Override
+    public String toString() {
+        if (category != null) {
+            return "" + getDate().getMonthValue() + "/" + getDate().getDayOfMonth() + "/" + getDate().getYear()
+                    + ": " + getCategory().getName() + " - $" + getAmount();
+        } else {
+            return "" + getDate().getMonthValue() + "/" + getDate().getDayOfMonth() + "/" + getDate().getYear()
+                    + ": Additional Expense - $" + getAmount();
+        }
+    }
 }

@@ -46,6 +46,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -81,7 +82,7 @@ public class CalendarFragment extends Fragment {
     private String[] mDataset;
 
     // Private variables to keep track of the currently selected month, year and day in the calendar
-    private int currentMonth, currentYear, currentDay;
+    public int currentMonth, currentYear, currentDay;
 
     // Boolean array data member to keep track of the current month's up to date status. 12 indexes each representing a month
     private boolean[] calendarIsUpToDate = new boolean[12];
@@ -122,14 +123,7 @@ public class CalendarFragment extends Fragment {
 
     public CalendarDataPass getCalendarDataPasser() { return dataPasser; }
 
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        if (getArguments() != null) {
-            mParam1 = getArguments().getString(ARG_PARAM1);
-            mParam2 = getArguments().getString(ARG_PARAM2);
-        }
-
+    public void initialize() {
         Activity activity = getActivity();
         MainActivity parentActivity = (MainActivity) activity;
 
@@ -140,11 +134,38 @@ public class CalendarFragment extends Fragment {
         } else {
             monthlyExpensesMapping = new HashMap<Integer, HashMap<LocalDate, ArrayList<CalendarEvent>>>();
         }
+
         if (parentActivity.getDeadlines() != null && !parentActivity.getDeadlines().isEmpty()) {
             deadlines = parentActivity.getDeadlines();
         } else {
             deadlines = new ArrayList<DeadlineEvent>();
         }
+
+        if (parentActivity.getDatabase() != null) {
+            db = parentActivity.getDatabase();
+        }
+
+        AsyncTask.execute(new Runnable() {
+            @Override
+            public void run() {
+                ExpenseCategoryDAO dao = db.expenseCategoryDAO();
+                List<ExpenseCategory> categories_in_db = dao.getAllCategories();
+                if (categories_in_db != null && !categories_in_db.isEmpty()) {
+                    expenseCategories = categories_in_db;
+                }
+            }
+        });
+    }
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        if (getArguments() != null) {
+            mParam1 = getArguments().getString(ARG_PARAM1);
+            mParam2 = getArguments().getString(ARG_PARAM2);
+        }
+
+        initialize();
 
         // Set a fragment result listener for the main CalendarFragment.
         // This listener will allow child dialogs/fragments of CalendarFragment to send data back to CalendarFragment
@@ -153,15 +174,18 @@ public class CalendarFragment extends Fragment {
             @Override
             @SuppressLint("NewApi")
             public void onFragmentResult(@NonNull String requestKey, @NonNull Bundle result) {
-                double data[] = result.getDoubleArray("calendarevent");
                 boolean clearSelections[] = result.getBooleanArray("buttons_selected");
+                double data[] = result.getDoubleArray("calendarevent");
                 String deadlineDescription = result.getString("deadline_description");
                 String category_name = result.getString("category_name");
+                int deletedCategoryIndex = result.getInt("deleted_category_index", -1);
+                boolean clear_categories = result.getBoolean("clear_categories", false);
+
                 // Either data or clearSelections must be null, only one of these arrays can be non-null at any given onFragmentResult callback
                 // If data is not null, this indicates the user has created an event (either Expense or Income) on the Calendar. Data will contain the relevant values to construct the object
                 // If clearSelections is not null, this indicates the user has clicked clearBtn.
-
                 if (clearSelections != null) {
+
                     // If the user has checked both Calendar and Deadline boxes, we clear all CalendarEvents for the current month, and ALL deadlines
                     // Element 0 of clearSelections = calendar checkbox, Element 1 of clearSelections = deadline checkbox
                     if (clearSelections[0] && clearSelections[1]) {
@@ -246,16 +270,16 @@ public class CalendarFragment extends Fragment {
                                 entity.minute = deadline.getMinute();
                                 deadlineDAO.insert(entity);
                                 Log.i("Database insertion", "Inserted deadline!");
-                                parentActivity.setAlarmForDeadline(deadline);
+                                ((MainActivity) getActivity()).setAlarmForDeadline(deadline);
                             }
                         });
                     }
 
                     // Expenses Event
                     else if (data[1] == 0) {
-                        Log.i("Dialog Data", "Type: Expense. Amount: " + data[0]);
+                        int spinnerIndex = result.getInt("category_index", -1);
                         ExpensesEvent event = new ExpensesEvent(data[0], data[1], date);
-                        CalendarHelper.insertEvent(monthlyExpensesMapping, event, getContext());
+                        Log.i("Dialog Data", "Type: Expense. Amount: " + data[0]);
 
                         // Insert the ExpensesEvent data into the database
                         AsyncTask.execute(new Runnable() {
@@ -268,11 +292,41 @@ public class CalendarFragment extends Fragment {
                                 entity.year = date.getYear();
                                 entity.expense = data[0];
                                 entity.income = data[1];
-                                dao.insert(entity);
-                                Log.i("Database insertion", "Expense event inserted!");
 
+                                // Default "Other" category was selected
+                                if (spinnerIndex > expenseCategories.size()) {
+                                    ExpenseCategory defaultCategory = new ExpenseCategory("Other");
+                                    event.setCategory(defaultCategory);
+                                    ExpenseCategoryDAO expenseCategoryDAO = db.expenseCategoryDAO();
+
+                                    // "Other" category already exists within the database, do not create another one
+                                    if (!expenseCategoryDAO.getCategory("Other").isEmpty()) {
+                                        int category_id = expenseCategoryDAO.getCategoryId("Other");
+                                        entity.category_id = category_id;
+
+                                    // Create the "Other" category if it does not yet exist within the database
+                                    // This only happens the first time the user selects the Other category for an ExpenseEvent
+                                    } else {
+                                        expenseCategoryDAO.createCategory(defaultCategory);
+                                        entity.category_id = expenseCategoryDAO.getCategoryId("Other");
+                                    }
+
+                                // A user-created category was selected
+                                } else if (spinnerIndex >= 0) {
+                                    ExpenseCategory selectedCategory = expenseCategories.get(spinnerIndex);
+                                    event.setCategory(selectedCategory);
+                                    ExpenseCategoryDAO expenseCategoryDAO = db.expenseCategoryDAO();
+                                    int category_id = expenseCategoryDAO.getCategoryId(selectedCategory.getName());
+                                    entity.category_id = category_id;
+                                }
+                                dao.insert(entity);
+//                                CalendarHelper.insertEvent(monthlyExpensesMapping, event, getContext());
+//                                updateRecyclerView();
+                                Log.i("Database insertion", "Expense event inserted!");
                             }
                         });
+                        CalendarHelper.insertEvent(monthlyExpensesMapping, event, getContext());
+                        updateRecyclerView();
 
                     // Income Event
                     } else if (data[0] == 0) {
@@ -290,6 +344,7 @@ public class CalendarFragment extends Fragment {
                                 entity.year = date.getYear();
                                 entity.expense = data[0];
                                 entity.income = data[1];
+                                entity.category_id = -1;
                                 dao.insert(entity);
                                 Log.i("Database insertion", "Income event inserted!");
                             }
@@ -297,9 +352,52 @@ public class CalendarFragment extends Fragment {
                     }
                 }
 
+                // User has clicked on the categories button, and created a new category
                 if (category_name != null) {
                     Log.i("CATEGORY NAME", "Name=" + category_name);
-                    expenseCategories.add(new ExpenseCategory(category_name));
+                    ExpenseCategory newCategory = new ExpenseCategory(category_name);
+                    if (expenseCategories.indexOf(newCategory) >= 0) {
+                        Toast.makeText(getContext(), "Expense category already exists!", Toast.LENGTH_LONG).show();
+                        return;
+                    } else {
+                        expenseCategories.add(newCategory);
+                        AsyncTask.execute(new Runnable() {
+                            @Override
+                            public void run() {
+                                ExpenseCategoryDAO dao = db.expenseCategoryDAO();
+                                dao.createCategory(newCategory);
+                            }
+                        });
+                        Toast.makeText(getContext(), "Successfully created new expense category", Toast.LENGTH_LONG).show();
+                    }
+                }
+
+                // User has clicked on the categories button, and deleted an existing category
+                else if (deletedCategoryIndex >= 0) {
+                    ExpenseCategory categoryToRemove = expenseCategories.get(deletedCategoryIndex);
+                    expenseCategories.remove(deletedCategoryIndex);
+                    Log.i("DELETE CATEGORY", "Deleted category at index=" + deletedCategoryIndex);
+
+                    AsyncTask.execute(new Runnable() {
+                        @Override
+                        public void run() {
+                            ExpenseCategoryDAO dao = db.expenseCategoryDAO();
+                            dao.deleteCategory(categoryToRemove.getName());
+                        }
+                    });
+                    Toast.makeText(getContext(), "Successfully deleted expense category", Toast.LENGTH_LONG).show();
+                }
+
+                if (clear_categories) {
+                    expenseCategories.clear();
+                    AsyncTask.execute(new Runnable() {
+                        @Override
+                        public void run() {
+                            ExpenseCategoryDAO dao = db.expenseCategoryDAO();
+                            dao.clearCategories();
+                        }
+                    });
+                    Toast.makeText(getContext(), "Successfully deleted all expense categories", Toast.LENGTH_LONG).show();
                 }
 
                 // After every onFragmentResult, call the onCalendarDataPassed callback in MainActivity
@@ -393,7 +491,7 @@ public class CalendarFragment extends Fragment {
         categoryBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                ExpenseCategoryDialog dialog = new ExpenseCategoryDialog();
+                ExpenseCategoryDialog dialog = new ExpenseCategoryDialog(expenseCategories, monthlyExpensesMapping);
                 dialog.show(getParentFragmentManager(), "CREATE_CATEGORY");
             }
         });
@@ -404,11 +502,6 @@ public class CalendarFragment extends Fragment {
     public void onAttach(Context context) {
         super.onAttach(context);
         dataPasser = (CalendarDataPass) context;
-    }
-
-    // Handle to the database for this fragment
-    public void setDatabase(ExpensesTrackerDatabase db) {
-        this.db = db;
     }
 
     // Setter method for ArrayList of deadlines, used for updating CalendarFragment's deadline ArrayList from MainActivity
@@ -440,14 +533,14 @@ public class CalendarFragment extends Fragment {
                     int datasetCounter = 0;
                     for (int i = 0; i < dates.size(); i++) {
                         ArrayList<CalendarEvent> eventsOnDay = events.get(dates.get(i));
-                        if (!eventsOnDay.isEmpty()) {
-                            ArrayList<Double> dayInfo = CalendarHelper.calculateTotalBudget(eventsOnDay);
+                        if (eventsOnDay != null && !eventsOnDay.isEmpty()) {
                             // dayInfo indexes:
                             // Element 0: Net Additional Budget
                             // Element 1: Net Expenses
                             // Element 2: Net Income
                             // Element 3: Number of ExpenseEvents
                             // Element 4: Number of IncomeEvents
+                            ArrayList<Double> dayInfo = CalendarHelper.calculateTotalBudget(eventsOnDay);
 
                             double totalBudget = dayInfo.get(0);
                             int numberOfExpenses = dayInfo.get(3).intValue();

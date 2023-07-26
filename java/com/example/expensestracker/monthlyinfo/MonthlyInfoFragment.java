@@ -232,6 +232,21 @@ public class MonthlyInfoFragment extends Fragment {
                 isDroppedDown = !isDroppedDown;
             }
         });
+        expensesListLabel.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (!isDroppedDown) {
+                    dropdown.setImageResource(R.drawable.expenses_list_arrow_down);
+                    expensesListLabel.setVisibility(View.INVISIBLE);
+                    expensesList.setVisibility(View.VISIBLE);
+                } else {
+                    dropdown.setImageResource(R.drawable.expenses_list_arrow_right);
+                    expensesListLabel.setVisibility(View.VISIBLE);
+                    expensesList.setVisibility(View.GONE);
+                }
+                isDroppedDown = !isDroppedDown;
+            }
+        });
 
         return view;
     }

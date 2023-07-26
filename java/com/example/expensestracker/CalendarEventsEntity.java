@@ -8,14 +8,23 @@ import androidx.room.PrimaryKey;
 public class CalendarEventsEntity {
     @PrimaryKey(autoGenerate = true)
     public int key;
+
+    @ColumnInfo
+    public int category_id;
+
     @ColumnInfo(name="day")
     public int day;
+
     @ColumnInfo(name="month")
     public int month;
+
     @ColumnInfo(name="year")
     public int year;
+
     @ColumnInfo(name="expense")
     public double expense;
+
     @ColumnInfo(name="income")
     public double income;
+
 }

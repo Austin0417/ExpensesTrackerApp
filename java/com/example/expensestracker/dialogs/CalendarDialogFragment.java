@@ -58,6 +58,9 @@ public class CalendarDialogFragment extends DialogFragment implements AdapterVie
 
     private List<ExpenseCategory> categories;
 
+    // Current index of the selection within the spinner for setting an ExpenseEvent's category
+    private int categorySelectionIndex;
+
     private int hourForDeadline;
     private int minuteForDeadline;
     private int am_pm_selection_for_deadline;
@@ -89,7 +92,9 @@ public class CalendarDialogFragment extends DialogFragment implements AdapterVie
                 Log.i("Deadline Selection", "Minute=" + minuteForDeadline);
                 break;
             case R.id.categorySelection:
-
+                categorySelectionIndex = pos;
+                Log.i("CATEGORY SELECTION", "Pos=" + categorySelectionIndex);
+                break;
         }
     }
 
@@ -172,6 +177,7 @@ public class CalendarDialogFragment extends DialogFragment implements AdapterVie
                         double arr[] = {Double.parseDouble(additionalExpenses.getText().toString()), 0};
                         Bundle result = new Bundle();
                         result.putDoubleArray("calendarevent", arr);
+                        result.putInt("category_index", categorySelectionIndex);
                         getParentFragmentManager().setFragmentResult("fragment_data", result);
                     }
                 // Income option was chosen

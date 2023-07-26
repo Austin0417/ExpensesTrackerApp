@@ -59,6 +59,8 @@ import com.example.expensestracker.calendar.CalendarEvent;
 import com.example.expensestracker.calendar.CalendarFragment;
 import com.example.expensestracker.calendar.DeadlineEvent;
 import com.example.expensestracker.calendar.EditEvent;
+import com.example.expensestracker.calendar.ExpenseCategory;
+import com.example.expensestracker.calendar.ExpenseCategoryDAO;
 import com.example.expensestracker.calendar.ExpensesEvent;
 import com.example.expensestracker.calendar.IncomeEvent;
 import com.example.expensestracker.dialogs.AmountConfirmationDialog;
@@ -300,7 +302,6 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
             @Override
             public void onClick(View view) {
                 calendar = new CalendarFragment();
-                calendar.setDatabase(db);
                 hideMainUI();
                 calendarEventFragmentActive = true;
                 monthlyInfoFragmentActive = false;
@@ -686,6 +687,8 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         }
     }
 
+    public ExpensesTrackerDatabase getDatabase() { return db; }
+
     public void initializeDatabase() {
         db = Room.databaseBuilder(getApplicationContext(), ExpensesTrackerDatabase.class, "ExpensesTracker").build();
         Log.i("Database creation", "Success!");
@@ -791,14 +794,21 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
                 int year = calendarEvents.get(i).year;
                 int month = calendarEvents.get(i).month;
                 int day = calendarEvents.get(i).day;
+                int category_id = calendarEvents.get(i).category_id;
                 double expenses = calendarEvents.get(i).expense;
                 double income = calendarEvents.get(i).income;
                 LocalDate date = LocalDate.of(year, month, day);
                 netExpenseFromCalendar += expenses;
                 netIncomeFromCalendar += income;
+
+                // Retrieved calendar event is of instance ExpenseEvent
                 if (income == 0) {
                     ExpensesEvent event = new ExpensesEvent(expenses, income, date);
+                    ExpenseCategoryDAO expenseCategoryDAO = db.expenseCategoryDAO();
+                    ExpenseCategory expenseCategory = expenseCategoryDAO.getCategory(category_id).get(0);
+                    event.setCategory(expenseCategory);
                     CalendarHelper.insertEvent(monthlyMapping, event, MainActivity.this);
+                // Retrieved calendar event is of instance IncomeEvent
                 } else {
                     IncomeEvent event = new IncomeEvent(expenses, income, date);
                     CalendarHelper.insertEvent(monthlyMapping, event, MainActivity.this);
@@ -820,11 +830,13 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     // Method to check for any DeadlineEvents pending deletion (this happens when the deadline alarm has gone off)
     // Delete the DeadlineEvent from the database upon app startup
     public void deletePassedDeadlines() {
-        // TODO Add functionality for multiple pending deadlines, try adding some counter into SharedPreferences keeping track of the number of pending DeadlineEvents
-        // TODO Seems that the LiveData of DeadlineEventEntities onChanged is never called
         if (deadlines != null) {
             SharedPreferences sharedPreferences = getSharedPreferences("deadline_to_remove", Context.MODE_PRIVATE);
+
+            // Get the number of deadlines that have already passed
             int numberOfDeadlines = sharedPreferences.getInt("number_of_deadlines", 0);
+
+            // Loop through the data stored in SharedPreferences, which contains passed deadlines' date, information, and amount
             for (int i = 0; i < numberOfDeadlines; i++) {
                 int day = sharedPreferences.getInt("day" + (i + 1), -1);
                 int month = sharedPreferences.getInt("month" + (i + 1), -1);
@@ -836,6 +848,8 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
                     Log.i("Pending Deadlines", "Could not retrieve info for deadline pending deletion");
                     continue;
                 }
+
+                // Delete the passed DeadlineEvent from the local database
                 AsyncTask.execute(new Runnable() {
                     @Override
                     public void run() {
@@ -843,6 +857,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
                         dao.deleteDeadlineEvent(amount, information, month, day, year);
                     }
                 });
+
                 int index = deadlines.indexOf(new DeadlineEvent(amount, 0, LocalDate.of(year, month, day), information));
                 if (index >= 0) {
                     deadlines.remove(index);
@@ -1059,9 +1074,15 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         ArrayList<CalendarEvent> events = currentMonthEvents.get(LocalDate.of(year, month, day));
 
         // Create an EditEventDialog, passing the obtained ArrayList of CalendarEvents to the dialog
-        // Show the dialog
-        EditEventDialog dialog = new EditEventDialog(events);
-        dialog.show(getSupportFragmentManager(), "Edit Event");
+        AsyncTask.execute(new Runnable() {
+            @Override
+            public void run() {
+                ExpenseCategoryDAO dao = db.expenseCategoryDAO();
+                List<ExpenseCategory> categories = dao.getAllCategories();
+                EditEventDialog dialog = new EditEventDialog(events, categories);
+                dialog.show(getSupportFragmentManager(), "Edit Event");
+            }
+        });
     }
 
     @SuppressLint("NewAPI")

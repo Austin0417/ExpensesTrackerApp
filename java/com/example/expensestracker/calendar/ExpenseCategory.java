@@ -14,9 +14,6 @@ public class ExpenseCategory {
     public int category_number;
 
     @ColumnInfo
-    public int id_of_expense;
-
-    @ColumnInfo
     private String name;
 
     public ExpenseCategory(String name) { this.name = name; }
@@ -24,10 +21,6 @@ public class ExpenseCategory {
     public String getName() { return name; }
 
     public void setName(String name) { this.name = name; }
-
-    public int getId_of_expense() { return id_of_expense; }
-
-    public void setId_of_expense(int id) { id_of_expense = id; }
 
     @Override
     public boolean equals(Object o) {
@@ -38,5 +31,10 @@ public class ExpenseCategory {
     @Override
     public int hashCode() {
         return Objects.hash(getName());
+    }
+
+    @Override
+    public String toString() {
+        return getName();
     }
 }

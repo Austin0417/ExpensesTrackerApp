@@ -10,40 +10,34 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
-                <com.prolificinteractive.materialcalendarview.MaterialCalendarView
-                    android:id="@+id/calendarView"
-                    android:layout_width="370dp"
-                    android:layout_height="300dp"
-                    android:layout_marginTop="6dp"
-                    android:layout_marginBottom="284dp"
-                    app:layout_constraintBottom_toTopOf="@+id/recyclerView"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintHorizontal_bias="0.0"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintVertical_bias="0.0" />
+                                        <com.prolificinteractive.materialcalendarview.MaterialCalendarView
+                                            android:id="@+id/calendarView"
+                                            android:layout_width="370dp"
+                                            android:layout_height="300dp"
+                                            android:layout_marginTop="6dp"
+                                            android:layout_marginBottom="284dp"
+                                            app:layout_constraintBottom_toTopOf="@+id/recyclerView"
+                                            app:layout_constraintEnd_toEndOf="parent"
+                                            app:layout_constraintHorizontal_bias="0.0"
+                                            app:layout_constraintStart_toStartOf="parent"
+                                            app:layout_constraintTop_toTopOf="parent"
+                                            app:layout_constraintVertical_bias="0.0" />
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/recyclerView"
-            android:layout_width="match_parent"
-            android:layout_height="102dp"
-            android:layout_marginTop="443dp"
-            android:layout_marginBottom="48dp"
+            android:layout_width="wrap_content"
+            android:layout_height="165dp"
             android:scrollbars="vertical"
-            app:layout_constraintBottom_toTopOf="@+id/tableRow"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintHorizontal_bias="0.0"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
+            app:layout_constraintBottom_toTopOf="@+id/categoryBtn"
+            app:layout_constraintStart_toStartOf="parent" />
 
         <TableRow
             android:id="@id/tableRow"
-            android:layout_width="308dp"
-            android:layout_height="64dp"
+            android:layout_width="303dp"
+            android:layout_height="62dp"
             app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/recyclerView">
+            app:layout_constraintEnd_toEndOf="@+id/categoryBtn"
+            app:layout_constraintStart_toStartOf="@+id/categoryBtn">
 
             <Button
                 android:id="@+id/exitBtn"
@@ -68,13 +62,10 @@
             android:id="@+id/categoryBtn"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="154dp"
-            android:layout_marginEnd="163dp"
-            android:text="Create Expense Category"
+            android:text="Expense Categories"
             app:layout_constraintBottom_toTopOf="@+id/tableRow"
-            app:layout_constraintEnd_toEndOf="@+id/recyclerView"
-            app:layout_constraintStart_toStartOf="@+id/recyclerView"
-            app:layout_constraintTop_toBottomOf="@+id/recyclerView" />
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </FrameLayout>

@@ -11,6 +11,11 @@
         android:layout_width="match_parent"
         android:layout_height="61dp" />
 
+    <Spinner
+        android:id="@+id/selectedExpenseCategory"
+        android:layout_width="match_parent"
+        android:layout_height="50dp" />
+
     <Button
         android:id="@+id/deleteBtn"
         android:layout_width="190dp"
