@@ -11,6 +11,7 @@ import android.os.Bundle;
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentResultListener;
+import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -569,8 +570,8 @@ public class CalendarFragment extends Fragment {
                 mDataset = new String[1];
                 mDataset[0] = "";
             }
-            mLayoutManager = new LinearLayoutManager(getActivity());
-            mAdapter = new CustomAdapter(mDataset);
+            mLayoutManager = new LinearLayoutManager(getContext());
+            mAdapter = new CustomAdapter(mDataset, expenseCategories);
             list.setLayoutManager(mLayoutManager);
             list.setAdapter(mAdapter);
         }

@@ -1127,9 +1127,11 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
             public void run() {
                 // Here we utilize a custom query to update the event stored in the database with the new amount
                 // Two separate methods, depending on whether the event is of class ExpensesEvent or IncomeEvent
-                CalendarEventsDAO dao = new CalendarEventsDAO_Impl(db);
+                CalendarEventsDAO dao = db.calendarEventsDAO();
                 if (targetEvent instanceof ExpensesEvent) {
-                    dao.updateExpenseEvent(amount, targetEvent.getMonth(), targetEvent.getDay(), targetEvent.getYear());
+                    ExpenseCategoryDAO expenseCategoryDAO = db.expenseCategoryDAO();
+                    int new_category_id = expenseCategoryDAO.getCategoryId(((ExpensesEvent) targetEvent).getCategory().getName());
+                    dao.updateExpenseEvent(amount, new_category_id, targetEvent.getMonth(), targetEvent.getDay(), targetEvent.getYear());
                 } else {
                     dao.updateIncomeEvent(amount, targetEvent.getMonth(), targetEvent.getDay(), targetEvent.getYear());
                 }

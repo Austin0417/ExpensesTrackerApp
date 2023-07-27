@@ -26,8 +26,8 @@ public interface CalendarEventsDAO {
     @Query("DELETE FROM calendar_events")
     public void clearCalendarEvents();
 
-    @Query("UPDATE calendar_events SET expense=:newExpense WHERE month=:month AND day=:day AND year=:year")
-    public void updateExpenseEvent(double newExpense, int month, int day, int year);
+    @Query("UPDATE calendar_events SET expense=:newExpense, category_id=:category_id WHERE month=:month AND day=:day AND year=:year")
+    public void updateExpenseEvent(double newExpense, int category_id, int month, int day, int year);
 
     @Query("UPDATE calendar_events SET income=:newIncome WHERE month=:month AND day=:day AND year=:year")
     public void updateIncomeEvent(double newIncome, int month, int day, int year);

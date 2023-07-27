@@ -138,7 +138,10 @@ public class CalendarDialogFragment extends DialogFragment implements AdapterVie
 
         // Initializing selection options for category selection spinner
         String category_options[] = new String[categories.size() + 1];
+
+        // Set the last index of spinner to be the "Other" category, so that users can still create ExpenseEvents if they haven't created any categories yet
         category_options[category_options.length - 1] = "Other";
+
         for (int i = 0; i < categories.size(); i++) {
             category_options[i] = categories.get(i).getName();
         }

@@ -44,9 +44,13 @@ public class EditEventDialog extends DialogFragment implements AdapterView.OnIte
     // This will be useful for obtaining the correct CalendarEvent object from the events array corresponding to the selected choice
     private int currentSelectedIndex;
 
+    // Integer variable to track current selected index of the categories spinner
+    private int categorySelectionIndex = -1;
+
     @Override
     public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
-        Log.i("EDIT EVENT", "Category index=" + pos);
+        categorySelectionIndex = pos;
+        Log.i("EDIT EVENT", "Category index=" + categorySelectionIndex);
     }
 
     @Override
@@ -143,6 +147,11 @@ public class EditEventDialog extends DialogFragment implements AdapterView.OnIte
                         CalendarEvent selectedEvent = events.get(currentSelectedIndex);
                         if (selectedEvent instanceof ExpensesEvent) {
                             expenseCategories.setVisibility(View.VISIBLE);
+
+                            // Grab the category of the selected ExpenseEvent, and set the current selection of the categories spinner to be the ExpenseEvent's category
+                            ExpenseCategory categoryOfExpense = ((ExpensesEvent) selectedEvent).getCategory();
+                            categorySelectionIndex = categories.indexOf(categoryOfExpense);
+                            expenseCategories.setSelection(categorySelectionIndex);
                         } else {
                             expenseCategories.setVisibility(View.GONE);
                         }
@@ -168,6 +177,11 @@ public class EditEventDialog extends DialogFragment implements AdapterView.OnIte
                         CalendarEvent selectedEvent = events.get(currentSelectedIndex);
                         double newAmount = Double.parseDouble(amount.getText().toString());
                         selectedEvent.setAmount(newAmount);
+
+                        if (selectedEvent instanceof ExpensesEvent) {
+                            ExpenseCategory newCategory = categories.get(categorySelectionIndex);
+                            ((ExpensesEvent) selectedEvent).setCategory(newCategory);
+                        }
 
                         // Interface method is called, which will be received as a callback in MainActivity's newAmount override method
                         // As arguments, we pass the event object that was modified, and the new amount
