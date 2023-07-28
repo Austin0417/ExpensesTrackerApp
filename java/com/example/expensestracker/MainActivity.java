@@ -342,7 +342,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
                                 e.printStackTrace();
                             }
                         } else {
-                            ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE}, CAMERA_STATUS_CODE);
+                            ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.MANAGE_EXTERNAL_STORAGE}, CAMERA_STATUS_CODE);
                         }
                     } else {
                         Toast.makeText(MainActivity.this, "No rear camera detected", Toast.LENGTH_LONG).show();
@@ -640,27 +640,50 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     }
 
     public void confirmAmount(double amount) {
-        AmountConfirmationDialog confirmationDialog = new AmountConfirmationDialog(amount);
-        confirmationDialog.show(getSupportFragmentManager(), "CONFIRMATION");
+        AsyncTask.execute(new Runnable() {
+            @Override
+            public void run() {
+                List<ExpenseCategory> currentCategories;
+                if (calendar != null) {
+                    currentCategories = calendar.getCategories();
+                } else {
+                    ExpenseCategoryDAO expenseCategoryDAO = db.expenseCategoryDAO();
+                    currentCategories = expenseCategoryDAO.getAllCategories();
+                }
+                AmountConfirmationDialog confirmationDialog = new AmountConfirmationDialog(amount, currentCategories);
+                confirmationDialog.show(getSupportFragmentManager(), "CONFIRMATION");
+            }
+        });
     }
 
     @Override
     @SuppressLint("NewAPI")
-    public void createEvent(double amount) {
-        CalendarHelper.insertEvent(monthlyMapping, new ExpensesEvent(amount, 0, LocalDate.now()), MainActivity.this);
+    public void createEvent(double amount, ExpenseCategory selectedCategory) {
+        ExpensesEvent newEvent = new ExpensesEvent(amount, 0, LocalDate.now());
+        newEvent.setCategory(selectedCategory);
+        CalendarHelper.insertEvent(monthlyMapping, newEvent, MainActivity.this);
         sumEventsInCurrentMonth();
         overview.setText(String.join("",generateUpdatedText(expenses, income, budget, deadlineCount)));
         AsyncTask.execute(new Runnable() {
             @Override
             public void run() {
                 LocalDate currentDate = LocalDate.now();
-                CalendarEventsDAO dao = new CalendarEventsDAO_Impl(db);
+                CalendarEventsDAO dao = db.calendarEventsDAO();
+                ExpenseCategoryDAO expenseCategoryDAO = db.expenseCategoryDAO();
+
+                int category_id;
+                List<ExpenseCategory> isExistingCategory = expenseCategoryDAO.getCategory(selectedCategory.getName());
+                if (isExistingCategory == null || isExistingCategory.isEmpty()) {
+                    expenseCategoryDAO.createCategory(selectedCategory);
+                }
+                category_id = expenseCategoryDAO.getCategoryId(selectedCategory.getName());
                 CalendarEventsEntity entity = new CalendarEventsEntity();
                 entity.month = currentDate.getMonthValue();
                 entity.day = currentDate.getDayOfMonth();
                 entity.year = currentDate.getYear();
                 entity.expense = amount;
                 entity.income = 0;
+                entity.category_id = category_id;
                 dao.insert(entity);
             }
         });

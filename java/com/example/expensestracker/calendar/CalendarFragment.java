@@ -122,6 +122,8 @@ public class CalendarFragment extends Fragment {
         return fragment;
     }
 
+    public List<ExpenseCategory> getCategories() { return expenseCategories; }
+
     public CalendarDataPass getCalendarDataPasser() { return dataPasser; }
 
     public void initialize() {
@@ -305,14 +307,14 @@ public class CalendarFragment extends Fragment {
                                         int category_id = expenseCategoryDAO.getCategoryId("Other");
                                         entity.category_id = category_id;
 
-                                    // Create the "Other" category if it does not yet exist within the database
-                                    // This only happens the first time the user selects the Other category for an ExpenseEvent
+                                        // Create the "Other" category if it does not yet exist within the database
+                                        // This only happens the first time the user selects the Other category for an ExpenseEvent
                                     } else {
                                         expenseCategoryDAO.createCategory(defaultCategory);
                                         entity.category_id = expenseCategoryDAO.getCategoryId("Other");
                                     }
 
-                                // A user-created category was selected
+                                    // A user-created category was selected
                                 } else if (spinnerIndex >= 0) {
                                     ExpenseCategory selectedCategory = expenseCategories.get(spinnerIndex);
                                     event.setCategory(selectedCategory);
@@ -329,7 +331,7 @@ public class CalendarFragment extends Fragment {
                         CalendarHelper.insertEvent(monthlyExpensesMapping, event, getContext());
                         updateRecyclerView();
 
-                    // Income Event
+                        // Income Event
                     } else if (data[0] == 0) {
                         IncomeEvent event = new IncomeEvent(data[0], data[1], date);
                         CalendarHelper.insertEvent(monthlyExpensesMapping, event, getContext());
@@ -525,11 +527,9 @@ public class CalendarFragment extends Fragment {
                     // Obtain an ArrayList of all LocalDates in the month with an event, and then sort this ArrayList by LocalDate chronological order
 
                     // If no insertions have been, don't sort the ArrayList of LocalDates.
-                    if (!calendarIsUpToDate[currentMonth - 1]) {
-                        dates = CalendarEvent.getDatesWithEvents(events);
-                        Collections.sort(dates);
-                        calendarIsUpToDate[currentMonth - 1] = true;
-                    }
+                    dates = CalendarEvent.getDatesWithEvents(events);
+                    Collections.sort(dates);
+
                     mDataset = new String[datasetSize];
                     int datasetCounter = 0;
                     for (int i = 0; i < dates.size(); i++) {
@@ -560,7 +560,7 @@ public class CalendarFragment extends Fragment {
                             datasetCounter++;
                         }
                     }
-                // If there are no calendar events in the current month, display an empty RecyclerView list
+                    // If there are no calendar events in the current month, display an empty RecyclerView list
                 } else {
                     mDataset = new String[1];
                     mDataset[0] = "";

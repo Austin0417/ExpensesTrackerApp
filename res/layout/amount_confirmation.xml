@@ -7,8 +7,8 @@
 
     <LinearLayout
         android:id="@+id/linearLayout2"
-        android:layout_width="325dp"
-        android:layout_height="107dp"
+        android:layout_width="329dp"
+        android:layout_height="133dp"
         android:layout_marginStart="1dp"
         android:layout_marginTop="1dp"
         android:orientation="vertical"
@@ -17,15 +17,20 @@
 
         <TextView
             android:id="@+id/confirmationMessage"
-            android:textSize="20sp"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Confirm amount below is correct." />
+            android:text="Confirm amount below is correct."
+            android:textSize="20sp" />
+
+        <Spinner
+            android:id="@+id/confirmCategory"
+            android:layout_width="match_parent"
+            android:layout_height="42dp" />
 
         <EditText
             android:id="@+id/totalAmount"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="59dp"
             android:inputType="numberDecimal"
             android:text="TextView" />
     </LinearLayout>

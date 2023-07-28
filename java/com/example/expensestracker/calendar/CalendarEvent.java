@@ -104,6 +104,12 @@ public abstract class CalendarEvent implements Comparable<CalendarEvent> {
         }
         return getYear() - calendarEvent.getYear();
     }
+
+    @Override
+    public String toString() {
+        return "" + date.getMonthValue() + "/" + date.getDayOfMonth() + "/" + date.getYear() +
+                ": $" + getAmount();
+    }
 }
 
 
