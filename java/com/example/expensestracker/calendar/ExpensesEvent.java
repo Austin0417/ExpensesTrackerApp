@@ -30,7 +30,7 @@ public class ExpensesEvent extends CalendarEvent {
     public String toString() {
         if (category != null) {
             return "" + getDate().getMonthValue() + "/" + getDate().getDayOfMonth() + "/" + getDate().getYear()
-                    + ": " + getCategory().getName() + " - $" + getAmount();
+                    + ": -$" + getAmount();
         } else {
             return "" + getDate().getMonthValue() + "/" + getDate().getDayOfMonth() + "/" + getDate().getYear()
                     + ": Additional Expense - $" + getAmount();

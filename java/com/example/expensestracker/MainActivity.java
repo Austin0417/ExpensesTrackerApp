@@ -1143,7 +1143,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
 
         // This simply updates the RecyclerView to display the new amount set by the user
         if (calendar != null) {
-            calendar.updateRecyclerView();
+            calendar.initializeRecyclerView();
         }
         AsyncTask.execute(new Runnable() {
             @Override
@@ -1215,7 +1215,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
 
         // We then update the RecyclerView in CalendarFragment after removing the specified DeadlineEvent from the ArrayList
         if (calendar != null) {
-            calendar.updateRecyclerView();
+            calendar.initializeRecyclerView();
         }
 
         // Database operation deleting CalendarEvent

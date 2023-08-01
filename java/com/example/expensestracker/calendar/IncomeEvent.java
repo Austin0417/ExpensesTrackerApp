@@ -19,4 +19,9 @@ public class IncomeEvent extends CalendarEvent {
 
     @Override
     public double getAmount() { return getIncome(); }
+
+    @Override
+    public String toString() {
+        return "" + getDate().getMonthValue() + "/" + getDate().getDayOfMonth() + "/" + getDate().getYear() + ": $" + getAmount();
+    }
 }
