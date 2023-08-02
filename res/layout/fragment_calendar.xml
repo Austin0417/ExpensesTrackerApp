@@ -16,27 +16,37 @@
             android:layout_height="300dp"
             android:layout_marginTop="6dp"
             android:layout_marginBottom="284dp"
-            app:layout_constraintBottom_toTopOf="@+id/recyclerView"
+            app:layout_constraintBottom_toTopOf="@+id/horizontalScrollView"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintHorizontal_bias="0.0"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintVertical_bias="0.0" />
 
-<!--        <HorizontalScrollView-->
-<!--            android:layout_width="match_parent"-->
-<!--            android:layout_height="165dp"-->
-<!--            app:layout_constraintBottom_toTopOf="@+id/categoryBtn"-->
-<!--            tools:layout_editor_absoluteX="34dp">-->
 
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/recyclerView"
+        <HorizontalScrollView
+            android:id="@id/horizontalScrollView"
+            android:layout_width="match_parent"
+            android:layout_height="168dp"
+            app:layout_constraintBottom_toTopOf="@+id/categoryBtn"
+            tools:layout_editor_absoluteX="0dp">
+
+            <LinearLayout
+                android:id="@+id/ll_main"
                 android:layout_width="match_parent"
-                android:layout_height="165dp"
-                android:scrollbars="vertical|horizontal"
-                app:layout_constraintBottom_toTopOf="@+id/categoryBtn"
-                app:layout_constraintStart_toStartOf="parent" />
-<!--        </HorizontalScrollView>-->
+                android:layout_height="match_parent"
+                android:orientation="horizontal">
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/recyclerView"
+                    android:layout_width="wrap_content"
+                    android:layout_height="165dp"
+                    android:scrollbars="vertical|horizontal"
+                    app:layout_constraintBottom_toTopOf="@+id/categoryBtn"
+                    app:layout_constraintStart_toStartOf="parent" />
+            </LinearLayout>
+
+        </HorizontalScrollView>
 
         <TableRow
             android:id="@id/tableRow"

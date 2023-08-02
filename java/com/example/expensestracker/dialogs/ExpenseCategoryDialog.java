@@ -35,6 +35,8 @@ public class ExpenseCategoryDialog extends DialogFragment implements AdapterView
 
     private HashMap<Integer, HashMap<LocalDate, ArrayList<CalendarEvent>>> totalEvents;
 
+    private List<ExpenseCategory> categories;
+
     // String names of the existing categories created by the user
     private String[] existingCategories;
 
@@ -46,16 +48,35 @@ public class ExpenseCategoryDialog extends DialogFragment implements AdapterView
 
 
     public ExpenseCategoryDialog(List<ExpenseCategory> categories, HashMap<Integer, HashMap<LocalDate, ArrayList<CalendarEvent>>> totalEvents) {
-        existingCategories = new String[categories.size()];
-        for (int i = 0; i < categories.size(); i++) {
-            existingCategories[i] = categories.get(i).toString();
+        if (categories.isEmpty()) {
+            existingCategories = new String[0];
+            return;
         }
+        this.categories = categories;
+        existingCategories = new String[categories.size() - 1];
+        int arrayCounter = 0;
+        int listCounter = 0;
+
+        while (arrayCounter < existingCategories.length && listCounter < categories.size()) {
+            if (categories.get(listCounter).getName().equals("Other")) {
+                listCounter++;
+                continue;
+            }
+            existingCategories[arrayCounter] = categories.get(listCounter).toString();
+            arrayCounter++;
+            listCounter++;
+        }
+//        for (int i = 0; i < existingCategories.length; i++) {
+//
+//            existingCategories[i] = categories.get(i).toString();
+//        }
         this.totalEvents = totalEvents;
     }
 
     @Override
     public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
-        indexOfCategoryToDelete = pos;
+        String categoryName = (String) parent.getItemAtPosition(pos);
+        indexOfCategoryToDelete = categories.indexOf(new ExpenseCategory(categoryName));
         Log.i("DELETE CATEGORY", "Pos=" + pos);
     }
 
@@ -138,9 +159,13 @@ public class ExpenseCategoryDialog extends DialogFragment implements AdapterView
 
                             // If the user has opted to delete an existing category
                             case 1:
+                                if (existingCategories.length <= 0) {
+                                    return;
+                                }
+
                                 // Before deleting the ExpenseCategory, check if there are any existing ExpenseEvents
                                 // with the ExpenseCategory to delete, set as its category
-                                ExpenseCategory categoryToDelete = new ExpenseCategory(existingCategories[indexOfCategoryToDelete]);
+                                ExpenseCategory categoryToDelete = categories.get(indexOfCategoryToDelete);
                                 List<CalendarEvent> eventsWithSelectedCategory = canDeleteCategory(new ExpenseCategoryCallback() {
                                     @Override
                                     public List<CalendarEvent> canDeleteCategory(HashMap<Integer, HashMap<LocalDate, ArrayList<CalendarEvent>>> totalEvents, ExpenseCategory category) {

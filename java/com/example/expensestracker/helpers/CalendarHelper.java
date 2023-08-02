@@ -128,6 +128,7 @@ public class CalendarHelper {
     // E.g. If there are 3 categories total, and the category "Groceries" is located at position=0 with count=1, the correct index
     // of the next event with the Groceries category is (position + (number_of_categories * count)) = (0 + (3 * 1)) = 3
     public static List<CalendarEvent> translateListIndices(List<CalendarEvent> dataset, Map<ExpenseCategory, int[]> categoryMap) {
+        resetCategoryMapping(categoryMap);
         List<CalendarEvent> result = new ArrayList<CalendarEvent>(Collections.nCopies(100, null));
         if (categoryMap == null || categoryMap.isEmpty() || dataset.isEmpty()) {
             return result;
@@ -142,18 +143,20 @@ public class CalendarHelper {
                     int count = arr[1];
                     result.set(pos + (number_categories * count), event);
                     arr[1]++;
-                    categoryMap.put(eventCategory, arr);
                 }
             } else {
                 int[] arr = categoryMap.get(new ExpenseCategory("Income"));
                 int pos = arr[0];
                 int count = arr[1];
                 result.set(pos + (number_categories * count), event);
+                arr[1]++;
             }
         }
         return result;
     }
 
+    // This is called every time the user swipes to a new month on the calendar view
+    // We reinitialize the categoryMap to reflect the CalendarEvent positions and count in the new month, if there are events in the new month
     public static void categoryMapOnMonthChanged(Map<ExpenseCategory, int[]> categoryMap, HashMap<LocalDate, ArrayList<CalendarEvent>> eventsInMonth,
                                                  List<ExpenseCategory> expenseCategories, List<CalendarEvent> dataset) {
         // This is only true if there are already events in the new month
@@ -184,116 +187,21 @@ public class CalendarHelper {
         }
     }
 
-    public static void initializeCategoryMapping(HashMap<Integer, HashMap<LocalDate, ArrayList<CalendarEvent>>> events,
-                                                 Map<Integer, HashMap<ExpenseCategory, int[]>> categoryMap,
-                                                 List<ExpenseCategory> categories) {
-        // Looping through all of the months and their HashMaps
-        for (Map.Entry<Integer, HashMap<LocalDate, ArrayList<CalendarEvent>>> monthToEvents : events.entrySet()) {
-            int currentMonth = monthToEvents.getKey();
-            HashMap<LocalDate, ArrayList<CalendarEvent>> dateToEvents = monthToEvents.getValue();
-            // Looping through all of the events in a particular month
-            for (Map.Entry<LocalDate, ArrayList<CalendarEvent>> e: dateToEvents.entrySet()) {
-                ArrayList<CalendarEvent> eventsOnDay = e.getValue();
-                // Looping through all of the events on a particular day
-                for (CalendarEvent calendarEvent: eventsOnDay) {
-                    if (calendarEvent instanceof ExpensesEvent) {
-                        ExpenseCategory categoryOfEvent = ((ExpensesEvent) calendarEvent).getCategory();
-                        // Integer month key doesn't yet exist in the categoryMap, so initialize it
-                        if (!categoryMap.containsKey(currentMonth)) {
-                            HashMap<ExpenseCategory, int[]> newCategory = new HashMap<ExpenseCategory, int[]>();
-                            newCategory.put(categoryOfEvent, new int[]{categories.indexOf(categoryOfEvent), 1});
-                            categoryMap.put(currentMonth, newCategory);
-                        // Integer month key exists, obtain the HashMap corresponding to the month
-                        } else {
-                            HashMap<ExpenseCategory, int[]> categoryPosAndCount = categoryMap.get(currentMonth);
-                            // Check to see if the HashMap of the particular month already contains the event category
-                            // If not, initialize the key-value pair
-                            if (!categoryPosAndCount.containsKey(categoryOfEvent)) {
-                                categoryPosAndCount.put(categoryOfEvent, new int[]{categories.indexOf(categoryOfEvent), 1});
-                                categoryMap.put(currentMonth, categoryPosAndCount);
-                            // If it does, simply increment the category count.
-                            } else {
-                                int[] categoryInfo = categoryPosAndCount.get(((ExpensesEvent) calendarEvent).getCategory());
-                                categoryInfo[1]++;
-                                categoryPosAndCount.put(categoryOfEvent, categoryInfo);
-                                categoryMap.put(currentMonth, categoryPosAndCount);
-                            }
-                        }
-                    // Event is of instance IncomeEvent
-                    } else {
-                        ExpenseCategory incomeCategory = new ExpenseCategory("Income");
-                        if (!categoryMap.containsKey(currentMonth)) {
-                            HashMap<ExpenseCategory, int[]> newCategory = new HashMap<ExpenseCategory, int[]>();
-                            newCategory.put(incomeCategory, new int[]{categories.indexOf(incomeCategory), 1});
-                            categoryMap.put(currentMonth, newCategory);
-                        } else {
-                            HashMap<ExpenseCategory, int[]> categoryPosAndCount = categoryMap.get(currentMonth);
-                            if (!categoryPosAndCount.containsKey(incomeCategory)) {
-                                categoryPosAndCount.put(incomeCategory, new int[]{categories.indexOf(incomeCategory), 1});
-                                categoryMap.put(currentMonth, categoryPosAndCount);
-                            } else {
-                                int categoryInfo[] = categoryPosAndCount.get(incomeCategory);
-                                categoryInfo[1]++;
-                                categoryPosAndCount.put(incomeCategory, categoryInfo);
-                                categoryMap.put(currentMonth, categoryPosAndCount);
-                            }
-                        }
-                    }
-                }
-            }
+    public static void resetCategoryMapping(Map<ExpenseCategory, int[]> categoryMap) {
+        for (Map.Entry<ExpenseCategory, int[]> entry : categoryMap.entrySet()) {
+            int[] categoryInfo = entry.getValue();
+            int pos = categoryInfo[0];
+            int count = categoryInfo[1];
+            categoryMap.put(entry.getKey(), new int[]{pos, 1});
         }
     }
 
-    public static int updateCategoryMapping(Map<Integer, HashMap<ExpenseCategory, int[]>> categoryMap, List<ExpenseCategory> categories, CalendarEvent event) {
-        int pos;
-        int count;
-        if (!categoryMap.containsKey(event.getMonth())) {
-            HashMap<ExpenseCategory, int[]> monthlyCategories = new HashMap<ExpenseCategory, int[]>();
-            if (event instanceof ExpensesEvent) {
-                ExpenseCategory categoryEvent = ((ExpensesEvent) event).getCategory();
-                monthlyCategories.put(categoryEvent, new int[]{categories.indexOf(categoryEvent), 1});
-                categoryMap.put(event.getMonth(), monthlyCategories);
-                pos = categories.indexOf(categoryEvent);
-                count = 1;
-            } else {
-                ExpenseCategory incomeCategory = new ExpenseCategory("Income");
-                monthlyCategories.put(incomeCategory, new int[]{categories.indexOf(incomeCategory), 1});
-                categoryMap.put(event.getMonth(), monthlyCategories);
-                pos = categories.indexOf(incomeCategory);
-                count = 1;
-            }
-        } else {
-            HashMap<ExpenseCategory, int[]> monthlyCategories = categoryMap.get(event.getMonth());
-            if (event instanceof ExpensesEvent) {
-                ExpenseCategory category = ((ExpensesEvent) event).getCategory();
-                pos = categories.indexOf(category);
-                if (!monthlyCategories.containsKey(category)) {
-                    monthlyCategories.put(category, new int[]{categories.indexOf(category), 1});
-                    categoryMap.put(event.getMonth(), monthlyCategories);
-                    count = 1;
-                } else {
-                    int categoryInfo[] = monthlyCategories.get(category);
-                    categoryInfo[1]++;
-                    monthlyCategories.put(category, categoryInfo);
-                    categoryMap.put(event.getMonth(), monthlyCategories);
-                    count = categoryInfo[1];
-                }
-            } else {
-                ExpenseCategory incomeCategory = new ExpenseCategory("Income");
-                pos = categories.indexOf(incomeCategory);
-                if (!monthlyCategories.containsKey(incomeCategory)) {
-                    monthlyCategories.put(incomeCategory, new int[]{categories.indexOf(incomeCategory), 1});
-                    categoryMap.put(event.getMonth(), monthlyCategories);
-                    count = 1;
-                } else {
-                    int[] categoryInfo = monthlyCategories.get(incomeCategory);
-                    categoryInfo[1]++;
-                    monthlyCategories.put(incomeCategory, categoryInfo);
-                    categoryMap.put(event.getMonth(), monthlyCategories);
-                    count = categoryInfo[1];
-                }
-            }
+    public static Map<ExpenseCategory, int[]> copyCategoryMap(Map<ExpenseCategory, int[]> originalMap) {
+        Map<ExpenseCategory, int[]> mapCopy = new HashMap<ExpenseCategory, int[]>();
+        for (Map.Entry<ExpenseCategory, int[]> entry : originalMap.entrySet()) {
+            ExpenseCategory categoryCopy = entry.getKey().copy();
+            mapCopy.put(categoryCopy, entry.getValue());
         }
-        return (pos + ((categories.size() + 1) * count));
+        return mapCopy;
     }
 }

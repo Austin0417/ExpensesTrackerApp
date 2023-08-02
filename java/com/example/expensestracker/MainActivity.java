@@ -60,6 +60,7 @@ import com.example.expensestracker.calendar.CalendarFragment;
 import com.example.expensestracker.calendar.DeadlineEvent;
 import com.example.expensestracker.calendar.EditEvent;
 import com.example.expensestracker.calendar.ExpenseCategory;
+import com.example.expensestracker.calendar.ExpenseCategoryCallback;
 import com.example.expensestracker.calendar.ExpenseCategoryDAO;
 import com.example.expensestracker.calendar.ExpensesEvent;
 import com.example.expensestracker.calendar.IncomeEvent;
@@ -1200,6 +1201,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     @SuppressLint("NewAPI")
     // Called from EditDeadlineDialog when the user deletes an existing CalendarEvent
     public void deleteCalendarEvent(CalendarEvent selectedEvent) {
+
         // Check and see if after deletion of selected CalendarEvent, there are no remaining events for this day
         // If so, remove this key-value pair from the HashMap
         if (monthlyMapping.containsKey(selectedEvent.getMonth())) {
@@ -1215,6 +1217,12 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
 
         // We then update the RecyclerView in CalendarFragment after removing the specified DeadlineEvent from the ArrayList
         if (calendar != null) {
+            ExpenseCategoryCallback callback = (ExpenseCategoryCallback) calendar;
+            if (selectedEvent instanceof ExpensesEvent) {
+                callback.onDeleteEvent(((ExpensesEvent) selectedEvent).getCategory());
+            } else {
+                callback.onDeleteEvent(new ExpenseCategory("Income"));
+            }
             calendar.initializeRecyclerView();
         }
 
@@ -1381,7 +1389,6 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         AsyncTask.execute(new Runnable() {
             @Override
             public void run() {
-                // TODO Iterate through deadlineIntentMapping and cancel all existing alarms
                 MonthlyInfoDAO monthlyInfoDAO = db.monthlyInfoDAO();
                 CalendarEventsDAO calendarDAO = db.calendarEventsDAO();
                 DeadlineEventsDAO deadlineDAO = db.deadlineEventsDAO();

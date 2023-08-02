@@ -42,8 +42,7 @@ public class AmountConfirmationDialog extends DialogFragment implements AdapterV
         amount.setText(Double.toString(extractedTotal));
         categorySelection = v.findViewById(R.id.confirmCategory);
 
-        String[] selections = new String[categories.size() + 1];
-        selections[selections.length - 1] = "Other";
+        String[] selections = new String[categories.size()];
         for (int i = 0; i < categories.size(); i++) {
             selections[i] = categories.get(i).toString();
         }
@@ -78,7 +77,8 @@ public class AmountConfirmationDialog extends DialogFragment implements AdapterV
                         if (currentSelectionIndex < categories.size()) {
                             selectedCategory = categories.get(currentSelectionIndex);
                         } else {
-                            selectedCategory = new ExpenseCategory("Other");
+                            Toast.makeText(getContext(), "Invalid category index selected. Aborting...", Toast.LENGTH_LONG).show();
+                            return;
                         }
                         createEvent.createEvent(Double.parseDouble(amount.getText().toString()), selectedCategory);
                     }
