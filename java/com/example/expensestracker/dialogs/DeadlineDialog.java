@@ -61,11 +61,17 @@ public class DeadlineDialog extends DialogFragment {
             } else {
                 hourType = "PM";
             }
+            String minuteString;
+            if (deadlines.get(i).getMinute() == 0) {
+                minuteString = "00";
+            } else {
+                minuteString = Integer.toString(deadlines.get(i).getMinute());
+            }
             dataset[i] = deadlines.get(i).getMonth() +
                     "/" + deadlines.get(i).getDay() +
                     "/" + deadlines.get(i).getYear() +
                     " (" + deadlines.get(i).getHour() +
-                    ":" + deadlines.get(i).getMinute() + " " + hourType +
+                    ":" + minuteString + " " + hourType +
                     "): $" + deadlines.get(i).getAmount() +
                     " - " + deadlines.get(i).getInformation();
         }

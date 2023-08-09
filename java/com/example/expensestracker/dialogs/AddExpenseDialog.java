@@ -50,6 +50,7 @@ public class AddExpenseDialog extends DialogFragment {
                         dismiss();
                     }
                 })
+                .setTitle("Add Monthly Expense")
                 .create();
     }
 }

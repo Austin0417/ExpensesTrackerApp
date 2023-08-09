@@ -22,7 +22,6 @@ import com.example.expensestracker.R;
 import com.example.expensestracker.MainActivity;
 import com.example.expensestracker.dialogs.AddExpenseDialog;
 import com.example.expensestracker.dialogs.ResetConfirmationDialog;
-import com.example.expensestracker.helpers.MonthlyInfoHelper;
 
 import java.util.List;
 
@@ -53,7 +52,6 @@ public class MonthlyInfoFragment extends Fragment {
     private boolean isDroppedDown;
 
     private RecyclerView expensesList;
-    private String[] dataset;
     private RecyclerView.LayoutManager layoutManager;
     private ExpensesListAdapter adapter;
 
@@ -108,7 +106,7 @@ public class MonthlyInfoFragment extends Fragment {
 
     public void setMonthlyExpense(List<MonthlyExpense> monthlyExpenses) {
         this.monthlyExpenses = monthlyExpenses;
-        updateExpenseList();
+        initializeExpenseList();
     }
 
     public void createExpenseDialog() {
@@ -122,11 +120,9 @@ public class MonthlyInfoFragment extends Fragment {
         expensesInput.setText(Double.toString(currentAmount));
     }
 
-    public void updateExpenseList() {
-        dataset = new String[monthlyExpenses.size()];
-        MonthlyInfoHelper.populateDataset(dataset, monthlyExpenses);
+    public void initializeExpenseList() {
         layoutManager = new LinearLayoutManager(getContext());
-        adapter = new ExpensesListAdapter(dataset);
+        adapter = new ExpensesListAdapter(monthlyExpenses);
         expensesList.setLayoutManager(layoutManager);
         expensesList.setAdapter(adapter);
     }
@@ -160,7 +156,7 @@ public class MonthlyInfoFragment extends Fragment {
                     updateExpenseAmount(expense_amount);
                     monthlyData.createExpense(expense);
                     monthlyData.passMonthlyExpenseList(monthlyExpenses);
-                    updateExpenseList();
+                    adapter.setDataset(monthlyExpenses);
                 }
             }
         });
@@ -182,12 +178,10 @@ public class MonthlyInfoFragment extends Fragment {
 
         expensesInput.setText(Double.toString(expenses));
         incomeInput.setText(Double.toString(income));
-
         expensesInput.setVisibility(View.GONE);
-
         expensesList.setVisibility(View.GONE);
 
-        updateExpenseList();
+        initializeExpenseList();
 
         backBtn.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -261,4 +255,5 @@ public class MonthlyInfoFragment extends Fragment {
             Log.i("Monthly Info Fragment", "Couldn't obtain reference to parent activity!");
         }
     }
+
 }

@@ -45,7 +45,7 @@ public class CalendarRecyclerAdapter extends RecyclerView.Adapter<CalendarRecycl
                             int day = Integer.parseInt(formattedDate[1]);
                             int year = Integer.parseInt(formattedDate[2]);
                             // Pass this back to MainActivity via a callback of EditEvent
-                            eventPasser.sendCalendarEventDate(month, year, day);
+                            eventPasser.sendCalendarEventDate(month, year, day, getAdapterPosition());
                         } catch (NumberFormatException e) {
                             return;
                         } finally {

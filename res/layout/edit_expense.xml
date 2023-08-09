@@ -9,16 +9,16 @@
 
     <LinearLayout
         android:id="@+id/linearLayout5"
-        android:layout_width="413dp"
-        android:layout_height="110dp">
+        android:layout_width="match_parent"
+        android:layout_height="62dp">
 
         <TextView
             android:id="@+id/textView5"
             android:layout_width="142dp"
             android:layout_height="wrap_content"
+            android:paddingLeft="37dp"
             android:text="Amount:"
-            android:textSize="18sp"
-            android:paddingLeft="37dp"/>
+            android:textSize="18sp" />
 
         <EditText
             android:id="@+id/amountInput"
@@ -30,16 +30,16 @@
 
     <LinearLayout
         android:id="@+id/linearLayout6"
-        android:layout_width="418dp"
-        android:layout_height="114dp">
+        android:layout_width="match_parent"
+        android:layout_height="62dp">
 
         <TextView
             android:id="@+id/textView6"
             android:layout_width="142dp"
             android:layout_height="wrap_content"
+            android:paddingLeft="37dp"
             android:text="Description:"
-            android:textSize="18sp"
-            android:paddingLeft="37dp"/>
+            android:textSize="18sp" />
 
         <EditText
             android:id="@+id/descriptionInput"

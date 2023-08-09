@@ -20,6 +20,7 @@ import com.example.expensestracker.calendar.CalendarEvent;
 import com.example.expensestracker.calendar.EditEvent;
 import com.example.expensestracker.calendar.ExpenseCategory;
 import com.example.expensestracker.calendar.ExpensesEvent;
+import com.example.expensestracker.calendar.IncomeEvent;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,7 +35,8 @@ public class EditEventDialog extends DialogFragment implements AdapterView.OnIte
 
     // ArrayList of CalendarEvent objects that is initialized in the constructor of EditEventDialog
     // This ArrayList represents the events associated with a particular day, that the user has selected from the RecyclerView
-    private ArrayList<CalendarEvent> events;
+    private CalendarEvent selectedEvent;
+    //private ArrayList<CalendarEvent> events;
     private List<ExpenseCategory> categories;
 
     // Interface object that will allow us to initiate the callback within MainActivity
@@ -59,8 +61,8 @@ public class EditEventDialog extends DialogFragment implements AdapterView.OnIte
     }
 
 
-    public EditEventDialog(ArrayList<CalendarEvent> events, List<ExpenseCategory> categories) {
-        this.events = events;
+    public EditEventDialog(CalendarEvent selectedEvent, List<ExpenseCategory> categories) {
+        this.selectedEvent = selectedEvent;
         this.categories = categories;
     }
 
@@ -88,9 +90,12 @@ public class EditEventDialog extends DialogFragment implements AdapterView.OnIte
 
         // Before the user selects an option (only happens once, when the dialog first appears)
         // We want the amount field and delete button to be invisible
-        amount.setVisibility(View.GONE);
-        expenseCategories.setVisibility(View.GONE);
-        deleteBtn.setVisibility(View.GONE);
+        if (selectedEvent instanceof IncomeEvent) {
+            expenseCategories.setVisibility(View.GONE);
+        } else {
+            expenseCategories.setSelection(categories.indexOf(((ExpensesEvent) selectedEvent).getCategory()));
+        }
+        amount.setText(Double.toString(selectedEvent.getAmount()));
 
         return v;
     }
@@ -114,9 +119,7 @@ public class EditEventDialog extends DialogFragment implements AdapterView.OnIte
                             @Override
                             public void onClick(DialogInterface dialog, int which) {
                                 getDialog().dismiss();
-                                CalendarEvent eventToDelete = events.get(currentSelectedIndex);
-                                events.remove(currentSelectedIndex);
-                                editEvent.deleteCalendarEvent(eventToDelete);
+                                editEvent.deleteCalendarEvent(selectedEvent);
                             }
                         }).create();
                 dialog.show();
@@ -125,43 +128,8 @@ public class EditEventDialog extends DialogFragment implements AdapterView.OnIte
 
         // Creating a String array that will serve as the options for the SingleChoiceItems
         // We want to create as many options as there are events on this particular day, which is why we define the size of the array to equal events.size()
-        String[] selection = new String[events.size()];
-        for (int i = 0; i < events.size(); i++) {
-            if (events.get(i) instanceof ExpensesEvent) {
-                if (((ExpensesEvent) events.get(i)).getCategory() != null) {
-                    selection[i] = ((ExpensesEvent) events.get(i)).getCategory().getName() + ": $" + events.get(i).getAmount();
-                } else {
-                    selection[i] = "Additional Expense: $" + events.get(i).getAmount();
-                }
-            } else {
-                selection[i] = "Additional Income: $" + events.get(i).getAmount();
-            }
-        }
         return new AlertDialog.Builder(requireContext())
                 .setTitle("Edit Event")
-                .setSingleChoiceItems(selection, -1, new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        // Whenever the user clicks a different choice, we need to update the index tracker variable
-                        currentSelectedIndex = which;
-                        CalendarEvent selectedEvent = events.get(currentSelectedIndex);
-                        if (selectedEvent instanceof ExpensesEvent) {
-                            expenseCategories.setVisibility(View.VISIBLE);
-
-                            // Grab the category of the selected ExpenseEvent, and set the current selection of the categories spinner to be the ExpenseEvent's category
-                            ExpenseCategory categoryOfExpense = ((ExpensesEvent) selectedEvent).getCategory();
-                            categorySelectionIndex = categories.indexOf(categoryOfExpense);
-                            expenseCategories.setSelection(categorySelectionIndex);
-                        } else {
-                            expenseCategories.setVisibility(View.GONE);
-                        }
-
-                        // Display the amount associated with the selected event in the EditText view
-                        amount.setText(Double.toString(Math.abs((events.get(currentSelectedIndex).getIncome() - events.get(currentSelectedIndex).getExpenses()))));
-                        amount.setVisibility(View.VISIBLE);
-                        deleteBtn.setVisibility(View.VISIBLE);
-                    }
-                })
                 .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
@@ -174,7 +142,6 @@ public class EditEventDialog extends DialogFragment implements AdapterView.OnIte
                         // When the user clicks save, we update any changes to the amount that the user might've made
                         // We use the currentSelectedIndex variable to obtain a reference to the CalendarEvent that has been modified by the user
                         // Call the updateAmount method on the object to update the object in memory, however we still need to translate this change to the local database as well
-                        CalendarEvent selectedEvent = events.get(currentSelectedIndex);
                         double newAmount = Double.parseDouble(amount.getText().toString());
                         selectedEvent.setAmount(newAmount);
 

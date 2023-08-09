@@ -13,8 +13,10 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.expensestracker.MainActivity;
 import com.example.expensestracker.R;
 
+import java.util.List;
+
 public class ExpensesListAdapter extends RecyclerView.Adapter<ExpensesListAdapter.ViewHolder> {
-    private String[] localDataset;
+    private List<MonthlyExpense> dataset;
 
     public static class ViewHolder extends RecyclerView.ViewHolder {
         private final TextView textView;
@@ -37,8 +39,13 @@ public class ExpensesListAdapter extends RecyclerView.Adapter<ExpensesListAdapte
         public TextView getTextView() { return textView; }
     }
 
-    public ExpensesListAdapter(String[] dataset) {
-        localDataset = dataset;
+    public ExpensesListAdapter(List<MonthlyExpense> expenses) {
+        dataset = expenses;
+    }
+
+    public void setDataset(List<MonthlyExpense> dataset) {
+        this.dataset = dataset;
+        notifyDataSetChanged();
     }
 
     @Override
@@ -51,9 +58,9 @@ public class ExpensesListAdapter extends RecyclerView.Adapter<ExpensesListAdapte
 
     @Override
     public void onBindViewHolder(ViewHolder viewHolder, final int position) {
-        viewHolder.getTextView().setText(localDataset[position]);
+        viewHolder.getTextView().setText(dataset.get(position).getDescription() + ": $" + dataset.get(position).getAmount());
     }
 
     @Override
-    public int getItemCount() { return localDataset.length; }
+    public int getItemCount() { return dataset.size(); }
 }

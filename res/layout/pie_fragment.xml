@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+
+    <com.github.mikephil.charting.charts.PieChart
+        android:id="@+id/pieChart"
+        android:layout_width="match_parent"
+        android:layout_height="415dp"
+        android:layout_marginTop="112dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <Button
+        android:id="@+id/pie_back_btn"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Back"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="@+id/linearLayout7"
+        app:layout_constraintStart_toStartOf="@+id/linearLayout7"
+        app:layout_constraintTop_toBottomOf="@+id/linearLayout7"
+        app:layout_constraintVertical_bias="0.337" />
+
+    <LinearLayout
+        android:id="@+id/linearLayout7"
+        android:layout_width="340dp"
+        android:layout_height="86dp"
+        android:orientation="horizontal"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.492"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/pieChart"
+        app:layout_constraintVertical_bias="0.289">
+
+        <ImageView
+            android:id="@+id/monthBackBtn"
+            android:layout_width="83dp"
+            android:layout_height="82dp"
+            app:srcCompat="@drawable/mcv_action_previous" />
+
+        <TextView
+            android:id="@+id/monthTextView"
+            android:layout_width="168dp"
+            android:layout_height="83dp"
+            android:gravity="center"
+            android:textSize="25sp"/>
+
+        <ImageView
+            android:id="@+id/monthForwardBtn"
+            android:layout_width="83dp"
+            android:layout_height="82dp"
+            app:srcCompat="@drawable/mcv_action_next" />
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

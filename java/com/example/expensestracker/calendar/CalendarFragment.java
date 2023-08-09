@@ -132,7 +132,10 @@ public class CalendarFragment extends Fragment implements ExpenseCategoryCallbac
 
     public List<ExpenseCategory> getCategories() { return expenseCategories; }
 
+    public List<CalendarEvent> getTotalEventsInMonth() { return totalEventsInMonth; }
+
     public CalendarDataPass getCalendarDataPasser() { return dataPasser; }
+
 
     public void initialize() {
         Activity activity = getActivity();

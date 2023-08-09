@@ -29,13 +29,13 @@ public class DeadlineViewAdapter extends RecyclerView.Adapter<DeadlineViewAdapte
                 public void onClick(View v) {
                     String deadlineText = textView.getText().toString(); // 7/11/2023 (6:30 PM): $88.0 - dgf
                     Log.i("View Click", deadlineText);
-                    String unparsedDate[] = deadlineText.split(": "); // [7/11/2023 (6:30 PM), $88.0 - dgf]
+                    String[] unparsedDate = deadlineText.split(": "); // [7/11/2023 (6:30 PM), $88.0 - dgf]
                     String dateAndTime = unparsedDate[0]; // 7/11/2023 (6:30 PM)
-                    String amountAndDescription[] = unparsedDate[1].split(" - "); // [$88.0, dgf]
+                    String[] amountAndDescription = unparsedDate[1].split(" - "); // [$88.0, dgf]
 
-                    String date[] = dateAndTime.substring(0, dateAndTime.indexOf(" (")).split("/"); // [7, 11, 2023]
-                    String time[] = dateAndTime.substring(dateAndTime.indexOf("(") + 1, dateAndTime.indexOf(")")).split(" "); // [6:30, PM]
-                    String hourAndMinute[] = time[0].split(":"); // [6, 30]
+                    String[] date = dateAndTime.substring(0, dateAndTime.indexOf(" (")).split("/"); // [7, 11, 2023]
+                    String[] time = dateAndTime.substring(dateAndTime.indexOf("(") + 1, dateAndTime.indexOf(")")).split(" "); // [6:30, PM]
+                    String[] hourAndMinute = time[0].split(":"); // [6, 30]
 
                     int month = Integer.parseInt(date[0]); // 7
                     int day = Integer.parseInt(date[1]); // 11

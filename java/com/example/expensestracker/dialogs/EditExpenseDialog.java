@@ -90,8 +90,14 @@ public class EditExpenseDialog extends DialogFragment {
                         }
                         passMonthlyData.updateExpense(descriptionInput.getText().toString(),
                                 Double.parseDouble(amountInput.getText().toString()), selectedExpense, index);
+                        Bundle res = new Bundle();
+                        res.putString("new_description", descriptionInput.getText().toString());
+                        res.putDouble("new_amount", Double.parseDouble(amountInput.getText().toString()));
+                        res.putInt("index", index);
+                        getParentFragmentManager().setFragmentResult("PIE_CHART", res);
                     }
                 })
+                .setTitle("Monthly Expense")
                 .create();
     }
 }

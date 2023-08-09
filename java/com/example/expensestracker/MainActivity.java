@@ -6,11 +6,13 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
+import androidx.loader.content.AsyncTaskLoader;
 import androidx.room.Room;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.AlarmManager;
+import android.app.AsyncNotedAppOp;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
@@ -79,6 +81,7 @@ import com.example.expensestracker.monthlyinfo.MonthlyExpenseDAO;
 import com.example.expensestracker.monthlyinfo.MonthlyInfoEntity;
 import com.example.expensestracker.monthlyinfo.MonthlyInfoFragment;
 import com.example.expensestracker.notifications.AlarmReceiver;
+import com.example.expensestracker.pie.PieFragment;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
@@ -114,6 +117,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     private Button initializeBtn;
     private Button cameraBtn;
     private Button confirmBtn;
+    private Button chartBtn;
     private ImageButton takePictureBtn;
     private ImageButton cameraBackBtn;
     private FragmentManager manager;
@@ -140,7 +144,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     private double additionalIncomeFromCalendar = 0;
 
     // Boolean variables to keep track of the current fragment that is active, if any. This is used for the onBackPressed listener.
-    private boolean monthlyInfoFragmentActive, calendarEventFragmentActive;
+    private boolean monthlyInfoFragmentActive, calendarEventFragmentActive, pieFragmentActive;
 
     // Data structs for storing all user added events in the current month
     // Nested Hashmap<LocalDate, ArrayList<CalendarEvent>> to support multiple events on a single day
@@ -150,6 +154,10 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     private ArrayList<DeadlineEvent> deadlines;
 
     private List<MonthlyExpense> monthlyExpenses = new ArrayList<MonthlyExpense>();
+
+    // Data members for sending back info from the database to PieFragment
+    private List<CalendarEventsEntity> eventsInMonth;
+    private List<ExpenseCategory> category;
 
     // HashMap data structure that holds the specific id and Intent object for each deadline, will be used for cancelling alarms
     // The id (key) is the integer value passed into the 'requestCode' argument of PendingIntent, and Intent (value) is the intent object used in the PendingIntent
@@ -165,6 +173,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     private CalendarFragment calendar;
     private DeadlineDialog deadlineDialog;
     private MonthlyInfoFragment monthlyInfo;
+    private PieFragment pieFragment;
 
     // Data members for interacting with Camera2 API
     private TextureView textureView;
@@ -271,6 +280,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         takePictureBtn = findViewById(R.id.takePictureBtn);
         cameraBackBtn = findViewById(R.id.cameraBackBtn);
         confirmBtn = findViewById(R.id.confirmBtn);
+        chartBtn = findViewById(R.id.chartBtn);
 
         overview = findViewById(R.id.overviewText);
         dashboardLabel = findViewById(R.id.dashboardLabel);
@@ -302,27 +312,13 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         addBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                calendar = new CalendarFragment();
-                hideMainUI();
-                calendarEventFragmentActive = true;
-                monthlyInfoFragmentActive = false;
-                FragmentTransaction transaction = manager.beginTransaction();
-                transaction.replace(R.id.calendarFragment, calendar);
-                transaction.addToBackStack("Calendar");
-                transaction.commit();
+                launchCalendarFragment();
             }
         });
         initializeBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                monthlyInfo = new MonthlyInfoFragment(expenses, income, monthlyExpenses);
-                hideMainUI();
-                monthlyInfoFragmentActive = true;
-                calendarEventFragmentActive = false;
-                FragmentTransaction transaction = manager.beginTransaction();
-                transaction.replace(addMonthlyInfoFragment.getId(), monthlyInfo);
-                transaction.addToBackStack("Monthly Information");
-                transaction.commit();
+                launchMonthlyInfoFragment();
             }
         });
         cameraBtn.setOnClickListener(new View.OnClickListener() {
@@ -371,6 +367,13 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
                 confirmAmount(total);
             }
         });
+        chartBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Log.i("CHART", "Chart button click");
+                launchPieFragment();
+            }
+        });
         // Requesting notification permissions if permissions are not allowed
         if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, NOTIFICATION_STATUS_CODE);
@@ -378,6 +381,53 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         }
         FirebaseApp.initializeApp(this);
         initializeDatabase();
+    }
+
+    public void launchMonthlyInfoFragment() {
+        monthlyInfo = new MonthlyInfoFragment(expenses, income, monthlyExpenses);
+        hideMainUI();
+        monthlyInfoFragmentActive = true;
+        calendarEventFragmentActive = false;
+        FragmentTransaction transaction = manager.beginTransaction();
+        transaction.replace(addMonthlyInfoFragment.getId(), monthlyInfo);
+        transaction.addToBackStack("Monthly Information");
+        transaction.commit();
+    }
+
+    public void launchCalendarFragment() {
+        calendar = new CalendarFragment();
+        hideMainUI();
+        calendarEventFragmentActive = true;
+        monthlyInfoFragmentActive = false;
+        FragmentTransaction transaction = manager.beginTransaction();
+        transaction.replace(R.id.calendarFragment, calendar);
+        transaction.addToBackStack("Calendar");
+        transaction.commit();
+    }
+
+    public void launchPieFragment() {
+        hideMainUI();
+        List<CalendarEvent> currentMonthEvents = null;
+
+        // Retrieve list of calendar events in the current month from the calendar fragment
+        // sanitizeEventsList returns a list of non-null CalendarEvent objects from calendar fragment's events list
+        if (calendar != null) {
+            currentMonthEvents = CalendarHelper.sanitizeEventsList(calendar.getTotalEventsInMonth());
+        } else if (monthlyMapping.get(LocalDate.now().getMonthValue()) != null) {
+            HashMap<LocalDate, ArrayList<CalendarEvent>> datesToEvents = monthlyMapping.get(LocalDate.now().getMonthValue());
+            List<LocalDate> dates = CalendarHelper.getDatesWithEvents(datesToEvents);
+            currentMonthEvents = CalendarHelper.obtainCurrentMonthEvents(datesToEvents, dates);
+        }
+
+        // If calendar is null, and there are no events in the current month, currentMonthEvents will be null
+        pieFragmentActive = true;
+        pieFragment = new PieFragment(monthlyExpenses, currentMonthEvents, income);
+        FragmentManager manager = getSupportFragmentManager();
+        manager.beginTransaction()
+                .setReorderingAllowed(true)
+                .addToBackStack("PieChart")
+                .replace(R.id.pie_fragment_container, pieFragment, null)
+                .commit();
     }
 
     public void exitCamera() {
@@ -707,6 +757,10 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
             calendarEventFragmentActive = false;
             unhideMainUI();
             sumEventsInCurrentMonth();
+            getSupportFragmentManager().popBackStack();
+        } else if (pieFragmentActive) {
+            pieFragmentActive = false;
+            unhideMainUI();
             getSupportFragmentManager().popBackStack();
         }
     }
@@ -1084,18 +1138,74 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
             Log.i("Failure", "Could not process mapping data");
         }
     }
+
+    @Override
+    public List<CalendarEventsEntity> getEventsInMonth(int month) {
+        CountDownLatch latch = new CountDownLatch(1);
+        AsyncTask.execute(new Runnable() {
+            @Override
+            public void run() {
+                CalendarEventsDAO dao = db.calendarEventsDAO();
+                eventsInMonth = dao.getEventsByMonth(month);
+                latch.countDown();
+            }
+        });
+        try {
+            latch.await();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        if (eventsInMonth != null) {
+            Log.i("PIE_CHART","Successfully retrieved new month's events");
+        }
+        return eventsInMonth;
+    }
+
+    @Override
+    public List<ExpenseCategory> getCategory(int category_id) {
+        CountDownLatch latch = new CountDownLatch(1);
+        AsyncTask.execute(new Runnable() {
+            @Override
+            public void run() {
+                ExpenseCategoryDAO dao = db.expenseCategoryDAO();
+                category = dao.getCategory(category_id);
+                latch.countDown();
+            }
+        });
+        try {
+            latch.await();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return category;
+    }
+
+    @Override
+    public List<ExpenseCategory> getAllCurrentCategories() {
+        CountDownLatch latch = new CountDownLatch(1);
+        AsyncTask.execute(new Runnable() {
+            @Override
+            public void run() {
+                ExpenseCategoryDAO dao = db.expenseCategoryDAO();
+                category = dao.getAllCategories();
+                latch.countDown();
+            }
+        });
+        try {
+            latch.await();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return category;
+    }
+
     @Override
     @SuppressLint("NewAPI")
     // This method is called via a callback from an EditEvent object
     // In this case, an EditEvent object in the CustomAdapter for the RecyclerView in CalendarFragment has called sendCalendarEventDate
     // The EditEvent object calls this method after the user has clicked an element within the RecyclerView list
-    public void sendCalendarEventDate(int month, int year, int day) {
+    public void sendCalendarEventDate(int month, int year, int day, int index) {
         Log.i("Send Date", month + "/" + day + "/" + year);
-
-        // Using the month value, we obtain the hashmap for that specific month from monthlyMapping
-        // We obtain the ArrayList of all events on that particular day by using the month, year, and day to query the particular month HashMap by using a LocalDate with those parameters
-        HashMap<LocalDate, ArrayList<CalendarEvent>> currentMonthEvents = monthlyMapping.get(month);
-        ArrayList<CalendarEvent> events = currentMonthEvents.get(LocalDate.of(year, month, day));
 
         // Create an EditEventDialog, passing the obtained ArrayList of CalendarEvents to the dialog
         AsyncTask.execute(new Runnable() {
@@ -1103,8 +1213,16 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
             public void run() {
                 ExpenseCategoryDAO dao = db.expenseCategoryDAO();
                 List<ExpenseCategory> categories = dao.getAllCategories();
-                EditEventDialog dialog = new EditEventDialog(events, categories);
-                dialog.show(getSupportFragmentManager(), "Edit Event");
+                CalendarEvent targetEvent = null;
+                if (calendar != null) {
+                    targetEvent = calendar.getTotalEventsInMonth().get(index);
+                }
+                if (targetEvent != null) {
+                    EditEventDialog dialog = new EditEventDialog(targetEvent, categories);
+                    dialog.show(getSupportFragmentManager(), "Edit Event");
+                } else {
+                    Log.i("EDIT EVENT", "Invalid Index, targetEvent=null");
+                }
             }
         });
     }
@@ -1215,7 +1333,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
             }
         }
 
-        // We then update the RecyclerView in CalendarFragment after removing the specified DeadlineEvent from the ArrayList
+        // We then update the RecyclerView in CalendarFragment after removing the specified CalendarEvent from the ArrayList
         if (calendar != null) {
             ExpenseCategoryCallback callback = (ExpenseCategoryCallback) calendar;
             if (selectedEvent instanceof ExpensesEvent) {
@@ -1332,12 +1450,12 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     // Helper method to easily update the main page text with updated information
     public String[] generateUpdatedText(double expenses, double income, double budget, int deadlineCount) {
         String[] res = new String[7];
-        res[0] = "Monthly Expenses: $" + expenses;
-        res[1] = "\nMonthly Income: $" + income;
+        res[0] = "Monthly Expenses: $" + Math.round(expenses * 100.0) / 100.0;
+        res[1] = "\nMonthly Income: $" + Math.round(income * 100.0) / 100.0;
         res[2] = "\nAdditional Expenses From Calendar: $" + Math.round(netExpenseFromCalendar * 100.0) / 100.0;
-        res[3] = "\nAdditional Income From Calendar: $" + netIncomeFromCalendar;
+        res[3] = "\nAdditional Income From Calendar: $" + Math.round(netIncomeFromCalendar * 100.0) / 100.0;
         res[4] = "\nAdditional Budget From Calendar: $" + Math.round((netIncomeFromCalendar - netExpenseFromCalendar) * 100.0) / 100.0;
-        res[5] = "\nTotal Available Budget: $" + budget;
+        res[5] = "\nTotal Available Budget: $" + Math.round(budget * 100.0) / 100.0;
         res[6] = "\n" + deadlineCount + " Upcoming Deadlines";
         return res;
     }
@@ -1346,6 +1464,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         overview.setVisibility(View.INVISIBLE);
         addBtn.setVisibility(View.INVISIBLE);
         cameraBtn.setVisibility(View.INVISIBLE);
+        chartBtn.setVisibility(View.INVISIBLE);
         initializeBtn.setVisibility(View.INVISIBLE);
         dashboardLabel.setVisibility(View.INVISIBLE);
     }
@@ -1354,6 +1473,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         overview.setVisibility(View.VISIBLE);
         addBtn.setVisibility(View.VISIBLE);
         cameraBtn.setVisibility(View.VISIBLE);
+        chartBtn.setVisibility(View.VISIBLE);
         initializeBtn.setVisibility(View.VISIBLE);
         dashboardLabel.setVisibility(View.VISIBLE);
     }

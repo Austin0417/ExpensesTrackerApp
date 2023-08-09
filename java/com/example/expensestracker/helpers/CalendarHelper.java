@@ -204,4 +204,14 @@ public class CalendarHelper {
         }
         return mapCopy;
     }
+
+    public static List<CalendarEvent> sanitizeEventsList(List<CalendarEvent> events) {
+        List<CalendarEvent> res = new ArrayList<CalendarEvent>();
+        for (CalendarEvent event : events) {
+            if (event != null) {
+                res.add(event);
+            }
+        }
+        return res;
+    }
 }

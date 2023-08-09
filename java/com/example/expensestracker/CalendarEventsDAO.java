@@ -23,6 +23,9 @@ public interface CalendarEventsDAO {
     @Query("SELECT * FROM calendar_events")
     List<CalendarEventsEntity> getCalendarEvents();
 
+    @Query("SELECT * FROM calendar_events WHERE month=:month")
+    public List<CalendarEventsEntity> getEventsByMonth(int month);
+
     @Query("DELETE FROM calendar_events")
     public void clearCalendarEvents();
 
