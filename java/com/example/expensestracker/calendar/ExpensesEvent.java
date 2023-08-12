@@ -6,6 +6,7 @@ import java.time.LocalDate;
 
 public class ExpensesEvent extends CalendarEvent {
     private ExpenseCategory category = null;
+    private boolean notificationsEnabled = false;
 
     public ExpensesEvent(double expenses, double income, LocalDate date) {
         super(expenses, income, date);
@@ -21,6 +22,10 @@ public class ExpensesEvent extends CalendarEvent {
 
     @Override
     public double getAmount() { return getExpenses(); }
+
+    public boolean isNotificationsEnabled() { return notificationsEnabled; }
+
+    public void setNotificationsStatus(boolean status) { notificationsEnabled = status; }
 
     public ExpenseCategory getCategory() { return category; }
 

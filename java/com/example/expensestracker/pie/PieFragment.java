@@ -3,12 +3,9 @@ package com.example.expensestracker.pie;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.graphics.Color;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.DragEvent;
 import android.view.LayoutInflater;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -47,6 +44,7 @@ import java.util.Map;
 
 public class PieFragment extends Fragment {
     private Button backBtn;
+    private Button emailBtn;
     private PieChart pieChart;
     private ImageView monthBack;
     private ImageView monthForward;
@@ -108,10 +106,12 @@ public class PieFragment extends Fragment {
     @Override
     public void onViewCreated(View view, Bundle savedInstanceState) {
         backBtn = view.findViewById(R.id.pie_back_btn);
+        emailBtn = view.findViewById(R.id.emailBtn);
         pieChart = view.findViewById(R.id.pieChart);
         monthBack = view.findViewById(R.id.monthBackBtn);
         monthForward = view.findViewById(R.id.monthForwardBtn);
         monthDisplay = view.findViewById(R.id.monthTextView);
+        emailBtn.setVisibility(View.INVISIBLE);
 
         initialize();
         pieEntries = generateChartEntries();
@@ -128,7 +128,7 @@ public class PieFragment extends Fragment {
                 updatePieDataset();
             }
         });
-        setViewClickListeners();
+        setViewListeners();
     }
 
     public void initialize() {
@@ -145,7 +145,7 @@ public class PieFragment extends Fragment {
         }
     }
 
-    public void setViewClickListeners() {
+    public void setViewListeners() {
         backBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -156,39 +156,13 @@ public class PieFragment extends Fragment {
         monthForward.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (shouldReset && currentMonth == 12) {
-                    currentMonth = 1;
-                    shouldReset = false;
-                } else if (shouldReset && currentMonth == 1) {
-                    currentMonth++;
-                    shouldReset = false;
-                } else {
-                    currentMonth++;
-                }
-
-                if (currentMonth == 1 || currentMonth == 12) {
-                    shouldReset = true;
-                }
-                refresh();
+                incrementMonth();
             }
         });
         monthBack.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (shouldReset && currentMonth == 1) {
-                    currentMonth = 12;
-                    shouldReset = false;
-                } else if (shouldReset && currentMonth == 12) {
-                    currentMonth--;
-                    shouldReset = false;
-                } else {
-                    currentMonth--;
-                }
-
-                if (currentMonth == 1 || currentMonth == 12) {
-                    shouldReset = true;
-                }
-                refresh();
+                decrementMonth();
             }
         });
         pieChart.setOnChartValueSelectedListener(new OnChartValueSelectedListener() {
@@ -196,8 +170,8 @@ public class PieFragment extends Fragment {
             public void onValueSelected(Entry e, Highlight h) {
                 PieEntry entry = (PieEntry) e;
                 Log.i("PIE CHART", "Clicked entry " + entry.getLabel() + ". Value=" + entry.getValue());
-                if (isSliceMonthlyExpense(new MonthlyExpense(entry.getLabel(), entry.getValue()))) {
-                    MonthlyExpense selectedExpense = new MonthlyExpense(entry.getLabel(), entry.getValue());
+                if (isSliceMonthlyExpense(new MonthlyExpense(entry.getLabel(), Math.round(entry.getValue() * 100.0) / 100.0))) {
+                    MonthlyExpense selectedExpense = new MonthlyExpense(entry.getLabel(), Math.round(entry.getValue() * 100.0) / 100.0);
                     EditExpenseDialog dialog = new EditExpenseDialog(selectedExpense, expenseList.indexOf(selectedExpense));
                     dialog.show(getParentFragmentManager(), "EDIT EXPENSE");
                 } else if (isSliceCategory(new ExpenseCategory(entry.getLabel()))) {
@@ -208,6 +182,36 @@ public class PieFragment extends Fragment {
             }
             @Override
             public void onNothingSelected() {
+            }
+        });
+        pieChart.setOnTouchListener(new PieSwipeListener(getContext()) {
+            public void onSwipeRight() {
+                decrementMonth();
+            }
+            public void onSwipeLeft() {
+                incrementMonth();
+            }
+        });
+        emailBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                AlertDialog dialog = new AlertDialog.Builder(getContext())
+                        .setTitle("Email Setup")
+                        .setMessage("Register email to get notified monthly with expenses data?")
+                        .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                dialog.dismiss();
+                            }
+                        })
+                        .setPositiveButton("Confirm", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+
+                            }
+                        })
+                        .create();
+                dialog.show();
             }
         });
     }
@@ -280,12 +284,7 @@ public class PieFragment extends Fragment {
     }
 
     private boolean isSliceMonthlyExpense(MonthlyExpense selectedExpense) {
-        for (MonthlyExpense expense : expenseList) {
-            if (expense.equals(selectedExpense)) {
-                return true;
-            }
-        }
-        return false;
+        return expenseList.indexOf(selectedExpense) >= 0;
     }
 
     private boolean isSliceCategory(ExpenseCategory category) {
@@ -349,5 +348,39 @@ public class PieFragment extends Fragment {
                 })
                 .setTitle(category.getName())
                 .create();
+    }
+
+    private void decrementMonth() {
+        if (shouldReset && currentMonth == 1) {
+            currentMonth = 12;
+            shouldReset = false;
+        } else if (shouldReset && currentMonth == 12) {
+            currentMonth--;
+            shouldReset = false;
+        } else {
+            currentMonth--;
+        }
+
+        if (currentMonth == 1 || currentMonth == 12) {
+            shouldReset = true;
+        }
+        refresh();
+    }
+
+    private void incrementMonth() {
+        if (shouldReset && currentMonth == 12) {
+            currentMonth = 1;
+            shouldReset = false;
+        } else if (shouldReset && currentMonth == 1) {
+            currentMonth++;
+            shouldReset = false;
+        } else {
+            currentMonth++;
+        }
+
+        if (currentMonth == 1 || currentMonth == 12) {
+            shouldReset = true;
+        }
+        refresh();
     }
 }

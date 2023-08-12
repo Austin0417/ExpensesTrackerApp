@@ -16,9 +16,12 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
+import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.Spinner;
+import android.widget.Switch;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.example.expensestracker.R;
 import com.example.expensestracker.calendar.CalendarEvent;
@@ -40,8 +43,14 @@ public class CalendarDialogFragment extends DialogFragment implements AdapterVie
     // Input field for the user to enter in the amount if Expenses option was checked
     private EditText additionalExpenses;
 
+    private Switch toggleAlertSwitch;
+
     // Input field for  the user to enter in the amount if the Income option was checked
     private EditText additionalIncome;
+
+    // Input field that appears if notifications are enabled for this expense event.
+    // Number of days before the date of the expense where a notification alert will be sent
+    private EditText daysBeforeAlert;
 
     // Input fields for the user to enter in the amount and description if the Deadline option was checked
     private EditText deadlineText;
@@ -105,20 +114,42 @@ public class CalendarDialogFragment extends DialogFragment implements AdapterVie
         minuteForDeadline = 0;
     }
 
-    @Override
-    public Dialog onCreateDialog(Bundle savedInstanceState) {
-        super.onCreateDialog(savedInstanceState);
-        AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
-        LayoutInflater inflater = LayoutInflater.from(getContext());
-        View dialogView = inflater.inflate(R.layout.fragment_calendar_dialog, null, false);
+    private void initialize(View dialogView) {
         additionalIncome = dialogView.findViewById(R.id.incomeInput);
         additionalExpenses = dialogView.findViewById(R.id.expensesInput);
+        toggleAlertSwitch = dialogView.findViewById(R.id.toggleAlert);
         deadlineText = dialogView.findViewById(R.id.deadlineInput);
         deadlineDescription = dialogView.findViewById(R.id.deadlineInfo);
         categorySelection = dialogView.findViewById(R.id.categorySelection);
         hourSelection = dialogView.findViewById(R.id.hourSelection);
         minuteSelection = dialogView.findViewById(R.id.minuteSelection);
         am_pm_selection = dialogView.findViewById(R.id.am_pm_selection);
+        daysBeforeAlert = dialogView.findViewById(R.id.daysBeforeAlert);
+
+        toggleAlertSwitch.setText("Enable Alert Notifications");
+
+        toggleAlertSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                Log.i("SWITCH VIEW", "SWITCH STATUS IS NOW " + toggleAlertSwitch.isChecked());
+                if (toggleAlertSwitch.isChecked()) {
+                    toggleAlertSwitch.setText("Disable Alert Notifications");
+                    daysBeforeAlert.setVisibility(View.VISIBLE);
+                } else {
+                    toggleAlertSwitch.setText("Enable Alert Notifications");
+                    daysBeforeAlert.setVisibility(View.GONE);
+                }
+            }
+        });
+    }
+
+    @Override
+    public Dialog onCreateDialog(Bundle savedInstanceState) {
+        super.onCreateDialog(savedInstanceState);
+        AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
+        LayoutInflater inflater = LayoutInflater.from(getContext());
+        View dialogView = inflater.inflate(R.layout.fragment_calendar_dialog, null, false);
+        initialize(dialogView);
 
         // Initializing selection options for the hour spinner
         ArrayAdapter<String> hourSelectionAdapter = new ArrayAdapter<String>(getContext(),
@@ -154,12 +185,14 @@ public class CalendarDialogFragment extends DialogFragment implements AdapterVie
         // Initial state when the CalendarDialog is created, we hide everything except the list of choices
         deadlineDescription.setVisibility(View.GONE);
         additionalIncome.setVisibility(View.GONE);
+        toggleAlertSwitch.setVisibility(View.GONE);
         additionalExpenses.setVisibility(View.GONE);
         deadlineText.setVisibility(View.GONE);
         categorySelection.setVisibility(View.GONE);
         hourSelection.setVisibility(View.GONE);
         minuteSelection.setVisibility(View.GONE);
         am_pm_selection.setVisibility(View.GONE);
+        daysBeforeAlert.setVisibility(View.GONE);
 
         String[] choices = {"Additional Expenses", "Additional Income", "Deadline"};
         ArrayAdapter<String> adapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_dropdown_item);
@@ -178,6 +211,13 @@ public class CalendarDialogFragment extends DialogFragment implements AdapterVie
                         Bundle result = new Bundle();
                         result.putDoubleArray("calendarevent", arr);
                         result.putInt("category_index", categorySelectionIndex);
+                        if (toggleAlertSwitch.isChecked() && daysBeforeAlert.getText().toString() != null && !daysBeforeAlert.getText().toString().isEmpty()) {
+                            result.putBoolean("notifications_enabled", toggleAlertSwitch.isChecked());
+                            result.putInt("notifications_days", Integer.parseInt(daysBeforeAlert.getText().toString()));
+                        } else {
+                            Toast.makeText(getContext(), "Number of days cannot be empty! Please try again.", Toast.LENGTH_LONG).show();
+                            return;
+                        }
                         getParentFragmentManager().setFragmentResult("fragment_data", result);
                     }
                 // Income option was chosen
@@ -212,6 +252,7 @@ public class CalendarDialogFragment extends DialogFragment implements AdapterVie
                 if (which == 0) {
                     // If the user has selected ExpenseEvent
                     additionalExpenses.setVisibility(View.VISIBLE);
+                    toggleAlertSwitch.setVisibility(View.VISIBLE);
                     categorySelection.setVisibility(View.VISIBLE);
                     additionalIncome.setVisibility(View.GONE);
                     deadlineText.setVisibility(View.GONE);
@@ -219,10 +260,12 @@ public class CalendarDialogFragment extends DialogFragment implements AdapterVie
                     hourSelection.setVisibility(View.GONE);
                     am_pm_selection.setVisibility(View.GONE);
                     minuteSelection.setVisibility(View.GONE);
+                    toggleAlertSwitch.setChecked(false);
                     type = "expenses";
                 } else if (which == 1) {
                     // If the user has selected IncomeEvent
                     additionalIncome.setVisibility(View.VISIBLE);
+                    toggleAlertSwitch.setVisibility(View.GONE);
                     additionalExpenses.setVisibility(View.GONE);
                     deadlineText.setVisibility(View.GONE);
                     deadlineDescription.setVisibility(View.GONE);
@@ -238,6 +281,7 @@ public class CalendarDialogFragment extends DialogFragment implements AdapterVie
                     hourSelection.setVisibility(View.VISIBLE);
                     am_pm_selection.setVisibility(View.VISIBLE);
                     minuteSelection.setVisibility(View.VISIBLE);
+                    toggleAlertSwitch.setVisibility(View.GONE);
                     additionalIncome.setVisibility(View.GONE);
                     additionalExpenses.setVisibility(View.GONE);
                     categorySelection.setVisibility(View.GONE);

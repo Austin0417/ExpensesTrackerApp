@@ -15,6 +15,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -326,6 +327,8 @@ public class CalendarFragment extends Fragment implements ExpenseCategoryCallbac
                     // Expenses Event
                     else if (data[1] == 0) {
                         int spinnerIndex = result.getInt("category_index", -1);
+                        boolean notificationsEnabled = result.getBoolean("notifications_enabled", false);
+                        int daysBeforeAlert = result.getInt("notifications_days", -1);
                         ExpensesEvent event = new ExpensesEvent(data[0], data[1], date);
                         Log.i("Dialog Data", "Type: Expense. Amount: " + data[0]);
                         boolean defaultSelected = false;
@@ -339,15 +342,22 @@ public class CalendarFragment extends Fragment implements ExpenseCategoryCallbac
                             event.setCategory(selectedCategory);
                         }
 
+                         // Obtain the int array for the selected ExpenseCategory and
                         int categoryInfo[] = categoryMap.get(event.getCategory());
                         List<CalendarEvent> dataset = mAdapter.getEvents();
                         int pos = categoryInfo[0];
                         int count = categoryInfo[1];
                         int index = (pos + (categoryMap.size() * count));
+
+                        // Insert the expense event into the correct position within the dataset list
+                        // then call the setDataset method to update the RecyclerView
                         dataset.set(index, event);
                         Log.i("EVENT INSERTION", "INSERTED EVENT AT INDEX=" + index);
                         mAdapter.setDataset(dataset);
                         CalendarHelper.insertEvent(monthlyExpensesMapping, event, getContext());
+
+                        // Increment the count of ExpensesEvents belonging to this category by one (located at index 1 of the array)
+                        // Update the HashMap accordingly
                         categoryInfo[1]++;
                         categoryMap.put(event.getCategory(), categoryInfo);
 
@@ -523,6 +533,9 @@ public class CalendarFragment extends Fragment implements ExpenseCategoryCallbac
         calendar.setDateSelected(CalendarDay.today(), true);
         calendar.setHeaderTextAppearance(R.style.CalendarWidgetHeader);
         calendar.setDateTextAppearance(R.style.CalendarWidgetText);
+        calendar.setLongClickable(true);
+        calendar.setClickable(true);
+
 
         initializeRecyclerView();
 

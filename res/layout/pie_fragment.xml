@@ -8,8 +8,8 @@
 
     <com.github.mikephil.charting.charts.PieChart
         android:id="@+id/pieChart"
-        android:layout_width="match_parent"
-        android:layout_height="415dp"
+        android:layout_width="412dp"
+        android:layout_height="368dp"
         android:layout_marginTop="112dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.0"
@@ -23,9 +23,10 @@
         android:text="Back"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="@+id/linearLayout7"
+        app:layout_constraintHorizontal_bias="0.035"
         app:layout_constraintStart_toStartOf="@+id/linearLayout7"
         app:layout_constraintTop_toBottomOf="@+id/linearLayout7"
-        app:layout_constraintVertical_bias="0.337" />
+        app:layout_constraintVertical_bias="0.307" />
 
     <LinearLayout
         android:id="@+id/linearLayout7"
@@ -50,7 +51,7 @@
             android:layout_width="168dp"
             android:layout_height="83dp"
             android:gravity="center"
-            android:textSize="25sp"/>
+            android:textSize="30sp"/>
 
         <ImageView
             android:id="@+id/monthForwardBtn"
@@ -58,5 +59,18 @@
             android:layout_height="82dp"
             app:srcCompat="@drawable/mcv_action_next" />
     </LinearLayout>
+
+    <Button
+        android:id="@+id/emailBtn"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="4dp"
+        android:text="Email"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="@+id/linearLayout7"
+        app:layout_constraintHorizontal_bias="0.827"
+        app:layout_constraintStart_toEndOf="@+id/pie_back_btn"
+        app:layout_constraintTop_toBottomOf="@+id/linearLayout7"
+        app:layout_constraintVertical_bias="0.307" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
