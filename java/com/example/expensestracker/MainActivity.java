@@ -6,13 +6,11 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
-import androidx.loader.content.AsyncTaskLoader;
 import androidx.room.Room;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.AlarmManager;
-import android.app.AsyncNotedAppOp;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
@@ -64,6 +62,8 @@ import com.example.expensestracker.calendar.EditEvent;
 import com.example.expensestracker.calendar.ExpenseCategory;
 import com.example.expensestracker.calendar.ExpenseCategoryCallback;
 import com.example.expensestracker.calendar.ExpenseCategoryDAO;
+import com.example.expensestracker.calendar.ExpenseNotification;
+import com.example.expensestracker.calendar.ExpenseNotificationDAO;
 import com.example.expensestracker.calendar.ExpensesEvent;
 import com.example.expensestracker.calendar.IncomeEvent;
 import com.example.expensestracker.dialogs.AmountConfirmationDialog;
@@ -81,6 +81,7 @@ import com.example.expensestracker.monthlyinfo.MonthlyExpenseDAO;
 import com.example.expensestracker.monthlyinfo.MonthlyInfoEntity;
 import com.example.expensestracker.monthlyinfo.MonthlyInfoFragment;
 import com.example.expensestracker.notifications.AlarmReceiver;
+import com.example.expensestracker.notifications.ExpenseNotificationReceiver;
 import com.example.expensestracker.pie.PieFragment;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
@@ -162,6 +163,8 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     // HashMap data structure that holds the specific id and Intent object for each deadline, will be used for cancelling alarms
     // The id (key) is the integer value passed into the 'requestCode' argument of PendingIntent, and Intent (value) is the intent object used in the PendingIntent
     private HashMap<Integer, Intent> deadlineIntentMapping = new HashMap<Integer, Intent>();
+
+    private HashMap<Integer, Intent> expenseNotificationMapping = new HashMap<Integer, Intent>();
 
     private boolean upToDate = true;
     private boolean notificationsEnabled = true;
@@ -885,6 +888,23 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
                     ExpenseCategoryDAO expenseCategoryDAO = db.expenseCategoryDAO();
                     ExpenseCategory expenseCategory = expenseCategoryDAO.getCategory(category_id).get(0);
                     event.setCategory(expenseCategory);
+                    AsyncTask.execute(new Runnable() {
+                        @Override
+                        public void run() {
+                            ExpenseNotificationDAO dao = db.expenseNotificationDAO();
+                            ExpenseNotification expenseNotification = dao.getExpenseNotification(event.hashCode());
+                            Log.i("RETRIEVE CALENDAR EVENTS FROM DATABASE", "SEARCHING EXPENSENOTIFICATION FOR HASHCODE=" + event.hashCode());
+                            if (expenseNotification != null) {
+                                event.setNotificationsStatus(true);
+                                Intent intent = new Intent(MainActivity.this, ExpenseNotificationReceiver.class);
+                                intent.putExtra("hash_code", event.hashCode());
+                                intent.putExtra("days_before_alert", expenseNotification.getDaysBeforeAlert());
+                                intent.putExtra("category", event.getCategory().getName());
+                                intent.putExtra("description", event.toString());
+                                expenseNotificationMapping.put(expenseNotification.getId(), intent);
+                            }
+                        }
+                    });
                     CalendarHelper.insertEvent(monthlyMapping, event, MainActivity.this);
                 // Retrieved calendar event is of instance IncomeEvent
                 } else {
@@ -1015,6 +1035,30 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
             }
         });
 
+    }
+
+    public void setAlarmForExpenseEvent(ExpensesEvent event, int daysBeforeAlert, long triggerTime) {
+        Intent intent = new Intent(MainActivity.this, ExpenseNotificationReceiver.class);
+        intent.putExtra("hash_code", event.hashCode());
+        intent.putExtra("days_before_alert", daysBeforeAlert);
+        intent.putExtra("category", event.getCategory().getName());
+        intent.putExtra("description", event.toString());
+        Log.i("EXPENSE HASH CODE", "Setting alarm for expense with hashcode=" + event.hashCode());
+        Log.i("EXPENSE DAYS BEFORE ALERT", "Setting alarm for expense with daysBeforeAlert=" + daysBeforeAlert);
+
+        AsyncTask.execute(new Runnable() {
+            @Override
+            public void run() {
+                ExpenseNotificationDAO dao = db.expenseNotificationDAO();
+                ExpenseNotification expenseNotification = dao.getExpenseNotification(event.hashCode());
+                if (expenseNotification != null) {
+                    int id = expenseNotification.getId();
+                    expenseNotificationMapping.put(id, intent);
+                    PendingIntent pIntent = PendingIntent.getBroadcast(MainActivity.this, id, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+                    alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + 20000, pIntent);
+                }
+            }
+        });
     }
 
     @Override
@@ -1257,7 +1301,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     @Override
     // Called from EditEventDialog when the user confirms an edit to an existing CalendarEvent after selecting a particular date
     // In MainActivity, we simply update the information in the database, while the CalendarEvent object that was modified was modified in EditEventDialog
-    public void modifyCalendarEvent(CalendarEvent targetEvent, double amount) {
+    public void modifyCalendarEvent(CalendarEvent targetEvent, double amount, int previousHashCode) {
         Log.i("New Amount", targetEvent.getMonth() + "/" + targetEvent.getDay() + "/" + targetEvent.getYear() + ": $" + amount);
 
         // This simply updates the RecyclerView to display the new amount set by the user
@@ -1270,10 +1314,14 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
                 // Here we utilize a custom query to update the event stored in the database with the new amount
                 // Two separate methods, depending on whether the event is of class ExpensesEvent or IncomeEvent
                 CalendarEventsDAO dao = db.calendarEventsDAO();
+                ExpenseNotificationDAO expenseNotificationDAO = db.expenseNotificationDAO();
                 if (targetEvent instanceof ExpensesEvent) {
                     ExpenseCategoryDAO expenseCategoryDAO = db.expenseCategoryDAO();
                     int new_category_id = expenseCategoryDAO.getCategoryId(((ExpensesEvent) targetEvent).getCategory().getName());
                     dao.updateExpenseEvent(amount, new_category_id, targetEvent.getMonth(), targetEvent.getDay(), targetEvent.getYear());
+                    ExpenseNotification expenseNotification = expenseNotificationDAO.getExpenseNotification(previousHashCode);
+                    expenseNotificationDAO.updateHashCode(((ExpensesEvent) targetEvent).hashCode(), expenseNotification.getId());
+                    Log.i("EXPENSE EVENT UPDATE", "New hashcode=" + ((ExpensesEvent) targetEvent).hashCode());
                 } else {
                     dao.updateIncomeEvent(amount, targetEvent.getMonth(), targetEvent.getDay(), targetEvent.getYear());
                 }
@@ -1327,6 +1375,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
             LocalDate targetDate = LocalDate.of(selectedEvent.getYear(), selectedEvent.getMonth(), selectedEvent.getDay());
             if (eventsOnDay.containsKey(targetDate)) {
                 ArrayList<CalendarEvent> events = eventsOnDay.get(targetDate);
+                events.remove(selectedEvent);
                 if (events.isEmpty()) {
                     eventsOnDay.remove(targetDate);
                 }
@@ -1337,7 +1386,11 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         if (calendar != null) {
             ExpenseCategoryCallback callback = (ExpenseCategoryCallback) calendar;
             if (selectedEvent instanceof ExpensesEvent) {
-                callback.onDeleteEvent(((ExpensesEvent) selectedEvent).getCategory());
+                ExpensesEvent expensesEvent = (ExpensesEvent) selectedEvent;
+                callback.onDeleteEvent(expensesEvent.getCategory());
+                if (expensesEvent.isNotificationsEnabled()) {
+                    cancelExpenseAlarm(expensesEvent);
+                }
             } else {
                 callback.onDeleteEvent(new ExpenseCategory("Income"));
             }
@@ -1390,6 +1443,25 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         } else {
             Log.i("Cancel Deadline", "Couldn't cancel deadline alarm (invalid deadline)");
         }
+    }
+
+    public void cancelExpenseAlarm(ExpensesEvent expensesEvent) {
+        AsyncTask.execute(new Runnable() {
+            @Override
+            public void run() {
+                ExpenseNotificationDAO dao = db.expenseNotificationDAO();
+                ExpenseNotification expenseNotification = dao.getExpenseNotification(expensesEvent.hashCode());
+                if (expenseNotification != null) {
+                    int id = expenseNotification.getId();
+                    if (expenseNotificationMapping.containsKey(id)) {
+                        Intent intent = expenseNotificationMapping.get(id);
+                        PendingIntent pIntent = PendingIntent.getBroadcast(MainActivity.this, id, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+                        alarmManager.cancel(pIntent);
+                    }
+                    dao.delete(expenseNotification);
+                }
+            }
+        });
     }
 
     public void clearDeadlineAlarms(DeadlineEventsDAO dao) {

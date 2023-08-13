@@ -204,6 +204,7 @@ public class CalendarDialogFragment extends DialogFragment implements AdapterVie
             @Override
             public void onClick(DialogInterface dialogInterface, int i) {
                 Log.i("Additional info", additionalExpenses.getText().toString() + " " + additionalIncome.getText().toString());
+
                 // Expenses option was chosen
                 if (type == "expenses") {
                     if (!additionalExpenses.getText().toString().isEmpty()) {
@@ -211,12 +212,15 @@ public class CalendarDialogFragment extends DialogFragment implements AdapterVie
                         Bundle result = new Bundle();
                         result.putDoubleArray("calendarevent", arr);
                         result.putInt("category_index", categorySelectionIndex);
-                        if (toggleAlertSwitch.isChecked() && daysBeforeAlert.getText().toString() != null && !daysBeforeAlert.getText().toString().isEmpty()) {
-                            result.putBoolean("notifications_enabled", toggleAlertSwitch.isChecked());
-                            result.putInt("notifications_days", Integer.parseInt(daysBeforeAlert.getText().toString()));
-                        } else {
-                            Toast.makeText(getContext(), "Number of days cannot be empty! Please try again.", Toast.LENGTH_LONG).show();
-                            return;
+                        if (toggleAlertSwitch.isChecked()) {
+                            if (daysBeforeAlert.getText().toString() != null && !daysBeforeAlert.getText().toString().isEmpty()
+                                && Integer.parseInt(daysBeforeAlert.getText().toString()) >= 0) {
+                                result.putBoolean("notifications_enabled", toggleAlertSwitch.isChecked());
+                                result.putInt("notifications_days", Integer.parseInt(daysBeforeAlert.getText().toString()));
+                            } else {
+                                Toast.makeText(getContext(), "Invalid entry for number of days! Please try again.", Toast.LENGTH_LONG).show();
+                                return;
+                            }
                         }
                         getParentFragmentManager().setFragmentResult("fragment_data", result);
                     }

@@ -1,8 +1,12 @@
 package com.example.expensestracker.calendar;
 
+import androidx.room.Entity;
+import androidx.room.PrimaryKey;
+
 import com.example.expensestracker.calendar.CalendarEvent;
 
 import java.time.LocalDate;
+import java.util.Objects;
 
 public class ExpensesEvent extends CalendarEvent {
     private ExpenseCategory category = null;
@@ -40,5 +44,17 @@ public class ExpensesEvent extends CalendarEvent {
             return "" + getDate().getMonthValue() + "/" + getDate().getDayOfMonth() + "/" + getDate().getYear()
                     + ": Additional Expense - $" + getAmount();
         }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        ExpensesEvent event = (ExpensesEvent) o;
+        return category.equals(event.getCategory()) && getAmount() == event.getAmount()
+                && getDate().equals(event.getDate());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getCategory(), getExpenses(), getIncome(), getDate());
     }
 }

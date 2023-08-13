@@ -3,7 +3,7 @@ package com.example.expensestracker.calendar;
 // Interface for creating, updating, and deleting operations involving CalendarEvents
 public interface EditEvent {
     public void sendCalendarEventDate(int month, int year, int day, int index);
-    public void modifyCalendarEvent(CalendarEvent targetedEvent, double amount);
+    public void modifyCalendarEvent(CalendarEvent targetedEvent, double amount, int previousHashCode);
     public void deleteCalendarEvent(CalendarEvent targetedEvent);
 
     public void sendDeadlineEventDate(double amount, String information, int month, int year, int day, int hour, int minute, String hourType);

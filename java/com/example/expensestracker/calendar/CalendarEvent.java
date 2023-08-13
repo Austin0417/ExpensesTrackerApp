@@ -85,8 +85,6 @@ public abstract class CalendarEvent implements Comparable<CalendarEvent> {
         return "calendarevent";
     }
 
-
-
     @Override
     // Implementation of Comparable interface method, used for sorting an ArrayList of CalendarEvents in chronological order
     public int compareTo(CalendarEvent calendarEvent) {

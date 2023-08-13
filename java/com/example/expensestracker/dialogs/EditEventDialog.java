@@ -141,7 +141,10 @@ public class EditEventDialog extends DialogFragment implements AdapterView.OnIte
                     public void onClick(DialogInterface dialog, int which) {
                         // When the user clicks save, we update any changes to the amount that the user might've made
                         // We use the currentSelectedIndex variable to obtain a reference to the CalendarEvent that has been modified by the user
-                        // Call the updateAmount method on the object to update the object in memory, however we still need to translate this change to the local database as well
+                        // Call the updateAmount method on the object to update the object in memory
+                        // However we still need to translate this change to the local database as well
+                        int previousHashCode = selectedEvent.hashCode();
+                        Log.i("EXPENSE EVENT UPDATE", "Previous hashcode=" + previousHashCode);
                         double newAmount = Double.parseDouble(amount.getText().toString());
                         selectedEvent.setAmount(newAmount);
 
@@ -153,7 +156,7 @@ public class EditEventDialog extends DialogFragment implements AdapterView.OnIte
                         // Interface method is called, which will be received as a callback in MainActivity's newAmount override method
                         // As arguments, we pass the event object that was modified, and the new amount
                         // In MainActivity's callback, we will use the database handle in MainActivity to make the corresponding query to update the target event
-                        editEvent.modifyCalendarEvent(selectedEvent, Double.parseDouble(amount.getText().toString()));
+                        editEvent.modifyCalendarEvent(selectedEvent, Double.parseDouble(amount.getText().toString()), previousHashCode);
                     }
                 })
                 .setView(v)

@@ -45,6 +45,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -330,6 +331,7 @@ public class CalendarFragment extends Fragment implements ExpenseCategoryCallbac
                         boolean notificationsEnabled = result.getBoolean("notifications_enabled", false);
                         int daysBeforeAlert = result.getInt("notifications_days", -1);
                         ExpensesEvent event = new ExpensesEvent(data[0], data[1], date);
+
                         Log.i("Dialog Data", "Type: Expense. Amount: " + data[0]);
                         boolean defaultSelected = false;
 
@@ -340,6 +342,33 @@ public class CalendarFragment extends Fragment implements ExpenseCategoryCallbac
                          else {
                             ExpenseCategory selectedCategory = expenseCategories.get(spinnerIndex);
                             event.setCategory(selectedCategory);
+                        }
+
+                        // If the user toggle notifications for the ExpenseEvent, and did not set a negative daysBeforeAlert value
+                        if (notificationsEnabled && daysBeforeAlert >= 0) {
+                            Calendar endDate = Calendar.getInstance();
+                            endDate.set(event.getDate().getYear(), event.getDate().getMonthValue() - 1, event.getDate().getDayOfMonth() - daysBeforeAlert);
+                            long triggerTime = endDate.getTimeInMillis() - System.currentTimeMillis();
+                            if (triggerTime < 0) {
+                                Toast.makeText(getContext(), "Cannot set notification time in the past! Notification alarm was not set", Toast.LENGTH_LONG).show();
+                            } else {
+                                event.setNotificationsStatus(notificationsEnabled);
+                                CountDownLatch latch = new CountDownLatch(1);
+                                AsyncTask.execute(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        ExpenseNotificationDAO dao = db.expenseNotificationDAO();
+                                        dao.insert(new ExpenseNotification(event.hashCode(), daysBeforeAlert));
+                                        latch.countDown();
+                                    }
+                                });
+                                try {
+                                    latch.await();
+                                } catch (InterruptedException e) {
+                                    e.printStackTrace();
+                                }
+                                ((MainActivity) getContext()).setAlarmForExpenseEvent(event, daysBeforeAlert, triggerTime);
+                            }
                         }
 
                          // Obtain the int array for the selected ExpenseCategory and
