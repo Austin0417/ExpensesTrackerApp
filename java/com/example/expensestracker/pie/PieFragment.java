@@ -1,7 +1,9 @@
 package com.example.expensestracker.pie;
 
+import android.Manifest;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.util.Log;
@@ -13,6 +15,8 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentResultListener;
 
@@ -44,7 +48,7 @@ import java.util.Map;
 
 public class PieFragment extends Fragment {
     private Button backBtn;
-    private Button emailBtn;
+    private Button exportBtn;
     private PieChart pieChart;
     private ImageView monthBack;
     private ImageView monthForward;
@@ -106,12 +110,11 @@ public class PieFragment extends Fragment {
     @Override
     public void onViewCreated(View view, Bundle savedInstanceState) {
         backBtn = view.findViewById(R.id.pie_back_btn);
-        emailBtn = view.findViewById(R.id.emailBtn);
+        exportBtn = view.findViewById(R.id.exportBtn);
         pieChart = view.findViewById(R.id.pieChart);
         monthBack = view.findViewById(R.id.monthBackBtn);
         monthForward = view.findViewById(R.id.monthForwardBtn);
         monthDisplay = view.findViewById(R.id.monthTextView);
-        emailBtn.setVisibility(View.INVISIBLE);
 
         initialize();
         pieEntries = generateChartEntries();
@@ -137,6 +140,7 @@ public class PieFragment extends Fragment {
             CostMapping costMapping = PieHelper.initializeCostsPerCategoryMapping(calendarEvents);
             costPerCategory = costMapping.getCategoryToAmountMapping();
             categoryToEventMapping = costMapping.getCategoryToEventMapping();
+            monthlyIncome = (float) (monthlyIncome + costMapping.getAdditionalIncomeFromCalendar());
         } else {
             // If calendarEvents is null or empty, both calendarEvents and costsPerCategory will be empty
             costPerCategory = new HashMap<ExpenseCategory, Double>();
@@ -165,6 +169,37 @@ public class PieFragment extends Fragment {
                 decrementMonth();
             }
         });
+        exportBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                AlertDialog dialog = new AlertDialog.Builder(getContext())
+                        .setTitle("Export")
+                        .setMessage("Export data as CSV file?")
+                        .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                dialog.dismiss();
+                            }
+                        })
+                        .setPositiveButton("Confirm", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                dialog.dismiss();
+                                if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                                    ActivityCompat.requestPermissions(getActivity(), new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                                            MainActivity.WRITE_EXTERNAL_STATUS_CODE);
+                                } else {
+                                    Log.i("CSV EXPORT", "Write permissions already granted. Proceeding...");
+                                    // TODO Begin exporting the data as a CSV here
+                                    CSVExporter exporter = new CSVExporter(Month.getMonth(currentMonth));
+                                    exporter.export(getContext(), expenseList, calendarEvents);
+                                }
+                            }
+                        })
+                        .create();
+                dialog.show();
+            }
+        });
         pieChart.setOnChartValueSelectedListener(new OnChartValueSelectedListener() {
             @Override
             public void onValueSelected(Entry e, Highlight h) {
@@ -190,28 +225,6 @@ public class PieFragment extends Fragment {
             }
             public void onSwipeLeft() {
                 incrementMonth();
-            }
-        });
-        emailBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                AlertDialog dialog = new AlertDialog.Builder(getContext())
-                        .setTitle("Email Setup")
-                        .setMessage("Register email to get notified monthly with expenses data?")
-                        .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-                                dialog.dismiss();
-                            }
-                        })
-                        .setPositiveButton("Confirm", new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-
-                            }
-                        })
-                        .create();
-                dialog.show();
             }
         });
     }
@@ -253,6 +266,8 @@ public class PieFragment extends Fragment {
         // Simple check to verify if monthlyIncome is greater than the totalExpenses amount
         if (monthlyIncome - totalExpenses > 0) {
             entries.add(new PieEntry(monthlyIncome - totalExpenses, "Remaining Budget"));
+        } else {
+            entries.add(new PieEntry(0f, "Remaining Budget"));
         }
         return entries;
     }

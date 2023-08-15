@@ -10,6 +10,7 @@ public class ExpenseNotification {
     private int id;
 
     // Int variable to store and associate each ExpenseNotification with a specific ExpensesEvent using it's hashcode
+    // The hashCode will be used to query the id for a specific ExpenseNotification within the ExpenseNotification table
     @ColumnInfo
     private int eventHashCode;
 

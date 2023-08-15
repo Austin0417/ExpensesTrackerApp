@@ -214,4 +214,10 @@ public class CalendarHelper {
         }
         return res;
     }
+
+    public static long calculateTriggerTime(int month, int year, int day) {
+        Calendar calendar = Calendar.getInstance();
+        calendar.set(year, month, day);
+        return calendar.getTimeInMillis() - System.currentTimeMillis();
+    }
 }

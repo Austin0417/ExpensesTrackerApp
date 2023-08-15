@@ -10,8 +10,10 @@ import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.Spinner;
+import android.widget.Switch;
 
 import androidx.fragment.app.DialogFragment;
 
@@ -27,11 +29,9 @@ import java.util.List;
 
 public class EditEventDialog extends DialogFragment implements AdapterView.OnItemSelectedListener {
     private EditText amount;
-
-    // TODO Populate the Spinner dropdown with all of the existing user-created ExpenseCategories
     private Spinner expenseCategories;
-
     private Button deleteBtn;
+    private Switch notificationsSwitch;
 
     // ArrayList of CalendarEvent objects that is initialized in the constructor of EditEventDialog
     // This ArrayList represents the events associated with a particular day, that the user has selected from the RecyclerView
@@ -49,6 +49,9 @@ public class EditEventDialog extends DialogFragment implements AdapterView.OnIte
     // Integer variable to track current selected index of the categories spinner
     private int categorySelectionIndex = -1;
 
+    // Int variable in the case an ExpensesEvent (with notifications enabled) is clicked. Otherwise, default value is -1
+    private int daysBeforeAlert = -1;
+
     @Override
     public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
         categorySelectionIndex = pos;
@@ -60,10 +63,15 @@ public class EditEventDialog extends DialogFragment implements AdapterView.OnIte
 
     }
 
-
     public EditEventDialog(CalendarEvent selectedEvent, List<ExpenseCategory> categories) {
         this.selectedEvent = selectedEvent;
         this.categories = categories;
+    }
+
+    public EditEventDialog(CalendarEvent selectedEvent, List<ExpenseCategory> categories, int daysBeforeAlert) {
+        this.selectedEvent = selectedEvent;
+        this.categories = categories;
+        this.daysBeforeAlert = daysBeforeAlert;
     }
 
     public View initialize() {
@@ -76,13 +84,14 @@ public class EditEventDialog extends DialogFragment implements AdapterView.OnIte
         expenseCategories = v.findViewById(R.id.selectedExpenseCategory);
         deleteBtn = v.findViewById(R.id.deleteBtn);
         amount = v.findViewById(R.id.amountText);
+        notificationsSwitch = v.findViewById(R.id.notificationsSwitch);
 
+        // Initializing the expense category options for the Spinner View
         String[] spinnerOptions = new String[categories.size() + 1];
         spinnerOptions[spinnerOptions.length - 1] = "Other";
         for (int i = 0; i < categories.size(); i++) {
             spinnerOptions[i] = categories.get(i).toString();
         }
-
         ArrayAdapter<String> categoriesAdapter = new ArrayAdapter<String>(getContext(), android.R.layout.simple_spinner_item, spinnerOptions);
         categoriesAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         expenseCategories.setAdapter(categoriesAdapter);
@@ -92,11 +101,19 @@ public class EditEventDialog extends DialogFragment implements AdapterView.OnIte
         // We want the amount field and delete button to be invisible
         if (selectedEvent instanceof IncomeEvent) {
             expenseCategories.setVisibility(View.GONE);
+            notificationsSwitch.setVisibility(View.GONE);
         } else {
+            if (((ExpensesEvent) selectedEvent).isNotificationsEnabled()) {
+                notificationsSwitch.setChecked(true);
+                notificationsSwitch.setText("Notifications enabled (set for " + selectedEvent.getMonth() + "/" + (selectedEvent.getDay() - daysBeforeAlert) + ")");
+            } else {
+                notificationsSwitch.setChecked(false);
+                notificationsSwitch.setText("Notifications disabled");
+            }
+            notificationsSwitch.setClickable(false);
             expenseCategories.setSelection(categories.indexOf(((ExpensesEvent) selectedEvent).getCategory()));
         }
         amount.setText(Double.toString(selectedEvent.getAmount()));
-
         return v;
     }
 
@@ -146,16 +163,18 @@ public class EditEventDialog extends DialogFragment implements AdapterView.OnIte
                         int previousHashCode = selectedEvent.hashCode();
                         Log.i("EXPENSE EVENT UPDATE", "Previous hashcode=" + previousHashCode);
                         double newAmount = Double.parseDouble(amount.getText().toString());
-                        selectedEvent.setAmount(newAmount);
 
+                        // If the selected event was of type ExpensesEvent, we have to cancel the alarm (if it was set)
                         if (selectedEvent instanceof ExpensesEvent) {
+                            editEvent.cancelExpenseAlarmCallback((ExpensesEvent) selectedEvent);
                             ExpenseCategory newCategory = categories.get(categorySelectionIndex);
                             ((ExpensesEvent) selectedEvent).setCategory(newCategory);
                         }
+                        selectedEvent.setAmount(newAmount);
 
                         // Interface method is called, which will be received as a callback in MainActivity's newAmount override method
                         // As arguments, we pass the event object that was modified, and the new amount
-                        // In MainActivity's callback, we will use the database handle in MainActivity to make the corresponding query to update the target event
+                        // We need the hashCode of the event before any changes were committed for querying the database and obtaining the id of the ExpenseNotification
                         editEvent.modifyCalendarEvent(selectedEvent, Double.parseDouble(amount.getText().toString()), previousHashCode);
                     }
                 })

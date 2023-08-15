@@ -247,7 +247,8 @@ public class CalendarFragment extends Fragment implements ExpenseCategoryCallbac
                             public void run() {
                                 CalendarEventsDAO calendarDAO = db.calendarEventsDAO();
                                 DeadlineEventsDAO deadlineDAO = db.deadlineEventsDAO();
-                                ((MainActivity) getContext()).clearDeadlineAlarms(deadlineDAO);
+                                ((MainActivity) getContext()).clearDeadlineAlarms();
+                                ((MainActivity) getContext()).clearExpenseAlarms();
                                 calendarDAO.clearCalendarEvents();
                                 deadlineDAO.clearDeadlineEvents();
                             }
@@ -265,6 +266,7 @@ public class CalendarFragment extends Fragment implements ExpenseCategoryCallbac
                                 public void run() {
                                     CalendarEventsDAO dao = db.calendarEventsDAO();
                                     dao.clearCalendarEvents();
+                                    ((MainActivity) getContext()).clearExpenseAlarms();
                                 }
                             });
                         }
@@ -275,7 +277,7 @@ public class CalendarFragment extends Fragment implements ExpenseCategoryCallbac
                             @Override
                             public void run() {
                                 DeadlineEventsDAO dao = db.deadlineEventsDAO();
-                                ((MainActivity) getContext()).clearDeadlineAlarms(dao);
+                                ((MainActivity) getContext()).clearDeadlineAlarms();
                                 dao.clearDeadlineEvents();
                                 Log.i("Clearing", "Deadline Events, success");
                             }

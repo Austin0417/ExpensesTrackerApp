@@ -12,25 +12,32 @@ import java.util.Map;
 import java.util.Random;
 
 public class PieHelper {
+    // Looping through the list of all CalendarEvents in the current month, to
+    // create two Maps which keep key-value pairs of each ExpenseCategory and their total amount, as well as each ExpenseCategory and all of the events under the category
     public static CostMapping initializeCostsPerCategoryMapping(List<CalendarEvent> events) {
-        Map<ExpenseCategory, Double> res = new HashMap<ExpenseCategory, Double>();
+        Map<ExpenseCategory, Double> categoryToAmountMapping = new HashMap<ExpenseCategory, Double>();
         Map<ExpenseCategory, List<ExpensesEvent>> categoryEventMapping = new HashMap<ExpenseCategory, List<ExpensesEvent>>();
+        CostMapping costMapping = new CostMapping();
         for (CalendarEvent event : events) {
             if (event instanceof ExpensesEvent) {
                 ExpenseCategory category = ((ExpensesEvent) event).getCategory();
-                if (res.containsKey(category)) {
-                    double amount = res.get(category);
-                    res.put(category, amount + event.getAmount());
+                if (categoryToAmountMapping.containsKey(category)) {
+                    double amount = categoryToAmountMapping.get(category);
+                    categoryToAmountMapping.put(category, amount + event.getAmount());
                     categoryEventMapping.get(category).add((ExpensesEvent) event);
                 } else {
-                    res.put(category, event.getAmount());
+                    categoryToAmountMapping.put(category, event.getAmount());
                     List<ExpensesEvent> expenseEvents = new ArrayList<ExpensesEvent>();
                     expenseEvents.add((ExpensesEvent) event);
                     categoryEventMapping.put(category, expenseEvents);
                 }
+            } else {
+                costMapping.setAdditionalIncomeFromCalendar(costMapping.getAdditionalIncomeFromCalendar() + event.getAmount());
             }
         }
-        return new CostMapping(res, categoryEventMapping);
+        costMapping.setCategoryToAmountMapping(categoryToAmountMapping);
+        costMapping.setCategoryToEventMapping(categoryEventMapping);
+        return costMapping;
     }
 
     private static int selectRandomColor(int[] colors) {

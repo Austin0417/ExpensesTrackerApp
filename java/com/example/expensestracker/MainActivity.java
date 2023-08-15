@@ -109,8 +109,9 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 
 public class MainActivity extends AppCompatActivity implements FragmentManager.OnBackStackChangedListener, PassMonthlyData, CalendarDataPass, EditEvent, CreateEventFromImage {
-    private static final int NOTIFICATION_STATUS_CODE = 1;
-    private static final int CAMERA_STATUS_CODE = 2;
+    public static final int NOTIFICATION_STATUS_CODE = 1;
+    public static final int CAMERA_STATUS_CODE = 2;
+    public static final int WRITE_EXTERNAL_STATUS_CODE = 3;
 
     // UI Elements of the main page
     FrameLayout addMonthlyInfoFragment;
@@ -256,18 +257,26 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == NOTIFICATION_STATUS_CODE) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                notificationsEnabled = true;
-            } else {
-                notificationsEnabled = false;
-            }
-        } else if (requestCode == CAMERA_STATUS_CODE) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                Toast.makeText(MainActivity.this, "Camera permission granted, press the button again to start camera", Toast.LENGTH_LONG).show();
-            } else {
-                Toast.makeText(MainActivity.this, "Camera permissions were denied. Enable camera permissions to use this feature", Toast.LENGTH_LONG);
-            }
+        switch(requestCode) {
+            case NOTIFICATION_STATUS_CODE:
+                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    notificationsEnabled = true;
+                } else {
+                    notificationsEnabled = false;
+                }
+                break;
+            case CAMERA_STATUS_CODE:
+                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    Toast.makeText(MainActivity.this, "Camera permission granted, press the button again to start camera", Toast.LENGTH_LONG).show();
+                    ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, WRITE_EXTERNAL_STATUS_CODE);
+                } else {
+                    Toast.makeText(MainActivity.this, "Camera permissions were denied. Enable camera permissions to use this feature", Toast.LENGTH_LONG);
+                }
+                break;
+            case WRITE_EXTERNAL_STATUS_CODE:
+                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    Toast.makeText(MainActivity.this, "Write permissions granted", Toast.LENGTH_SHORT).show();
+                }
         }
     }
 
@@ -333,7 +342,8 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
                     String rearCameraId = CameraHelper.getRearCameraId(MainActivity.this, cameraManager);
                     if (rearCameraId != null) {
                         // Check for camera permissions. If permission is not granted, request it
-                        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED &&
+                        ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
                             try {
                                 // Turn on the camera with specified id. In this case, it is the default, rear-facing camera
                                 // Also assign a CameraDevice.StateCallback to detect when the camera is successfully opened
@@ -342,7 +352,8 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
                                 e.printStackTrace();
                             }
                         } else {
-                            ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.MANAGE_EXTERNAL_STORAGE}, CAMERA_STATUS_CODE);
+                            ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.CAMERA}, CAMERA_STATUS_CODE);
+                            //ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, WRITE_EXTERNAL_STATUS_CODE);
                         }
                     } else {
                         Toast.makeText(MainActivity.this, "No rear camera detected", Toast.LENGTH_LONG).show();
@@ -893,7 +904,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
                         public void run() {
                             ExpenseNotificationDAO dao = db.expenseNotificationDAO();
                             ExpenseNotification expenseNotification = dao.getExpenseNotification(event.hashCode());
-                            Log.i("RETRIEVE CALENDAR EVENTS FROM DATABASE", "SEARCHING EXPENSENOTIFICATION FOR HASHCODE=" + event.hashCode());
+                            Log.i("RETRIEVE CALENDAR EVENTS FROM DATABASE", "SEARCHING EXPENSE NOTIFICATION FOR HASHCODE=" + event.hashCode());
                             if (expenseNotification != null) {
                                 event.setNotificationsStatus(true);
                                 Intent intent = new Intent(MainActivity.this, ExpenseNotificationReceiver.class);
@@ -1055,10 +1066,12 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
                     int id = expenseNotification.getId();
                     expenseNotificationMapping.put(id, intent);
                     PendingIntent pIntent = PendingIntent.getBroadcast(MainActivity.this, id, intent, PendingIntent.FLAG_UPDATE_CURRENT);
-                    alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + 20000, pIntent);
+                    alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + triggerTime, pIntent);
                 }
             }
         });
+        Toast.makeText(this, "Successfully set notifications for expense event on " + LocalDate.of(event.getYear(),
+                event.getMonth(), event.getDay() - daysBeforeAlert).toString(), Toast.LENGTH_LONG).show();
     }
 
     @Override
@@ -1250,20 +1263,27 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
     // The EditEvent object calls this method after the user has clicked an element within the RecyclerView list
     public void sendCalendarEventDate(int month, int year, int day, int index) {
         Log.i("Send Date", month + "/" + day + "/" + year);
-
         // Create an EditEventDialog, passing the obtained ArrayList of CalendarEvents to the dialog
         AsyncTask.execute(new Runnable() {
             @Override
             public void run() {
                 ExpenseCategoryDAO dao = db.expenseCategoryDAO();
                 List<ExpenseCategory> categories = dao.getAllCategories();
+
                 CalendarEvent targetEvent = null;
                 if (calendar != null) {
                     targetEvent = calendar.getTotalEventsInMonth().get(index);
                 }
                 if (targetEvent != null) {
-                    EditEventDialog dialog = new EditEventDialog(targetEvent, categories);
-                    dialog.show(getSupportFragmentManager(), "Edit Event");
+                    if (targetEvent instanceof ExpensesEvent && ((ExpensesEvent) targetEvent).isNotificationsEnabled()) {
+                        ExpenseNotificationDAO expenseNotificationDAO = db.expenseNotificationDAO();
+                        int daysBeforeAlert = expenseNotificationDAO.getDaysBeforeAlert(targetEvent.hashCode());
+                        EditEventDialog dialog = new EditEventDialog(targetEvent, categories, daysBeforeAlert);
+                        dialog.show(getSupportFragmentManager(), "Edit Event");
+                    } else {
+                        EditEventDialog dialog = new EditEventDialog(targetEvent, categories);
+                        dialog.show(getSupportFragmentManager(), "Edit Event");
+                    }
                 } else {
                     Log.i("EDIT EVENT", "Invalid Index, targetEvent=null");
                 }
@@ -1319,9 +1339,17 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
                     ExpenseCategoryDAO expenseCategoryDAO = db.expenseCategoryDAO();
                     int new_category_id = expenseCategoryDAO.getCategoryId(((ExpensesEvent) targetEvent).getCategory().getName());
                     dao.updateExpenseEvent(amount, new_category_id, targetEvent.getMonth(), targetEvent.getDay(), targetEvent.getYear());
+
                     ExpenseNotification expenseNotification = expenseNotificationDAO.getExpenseNotification(previousHashCode);
-                    expenseNotificationDAO.updateHashCode(((ExpensesEvent) targetEvent).hashCode(), expenseNotification.getId());
-                    Log.i("EXPENSE EVENT UPDATE", "New hashcode=" + ((ExpensesEvent) targetEvent).hashCode());
+                    // If notifications were enabled for the ExpensesEvent, then expenseNotification will not be null
+                    if (expenseNotification != null) {
+                        expenseNotificationDAO.updateHashCode(((ExpensesEvent) targetEvent).hashCode(), expenseNotification.getId());
+                        Log.i("EXPENSE EVENT UPDATE", "New hashcode=" + ((ExpensesEvent) targetEvent).hashCode());
+                        setAlarmForExpenseEvent((ExpensesEvent) targetEvent,
+                                expenseNotification.getDaysBeforeAlert(),
+                                CalendarHelper.calculateTriggerTime(targetEvent.getMonth() - 1, targetEvent.getYear(),
+                                        targetEvent.getDay() - expenseNotification.getDaysBeforeAlert()));
+                    }
                 } else {
                     dao.updateIncomeEvent(amount, targetEvent.getMonth(), targetEvent.getDay(), targetEvent.getYear());
                 }
@@ -1421,7 +1449,6 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
                 // Obtain the id (from the database) associated with the DeadlineEvent to be deleted.
                 // This is the same integer value that was used to initially set the alarm for the deadline
                 // Also access the HashMap<Integer, Intent> using the given id as key, this gives the exact intent that was associated with the PendingIntent for setting the alarm
-
                 DeadlineEventsDAO dao = new DeadlineEventsDAO_Impl(db);
                 cancelDeadlineAlarm(targetDeadline, dao);
                 dao.deleteDeadlineEvent(targetDeadline.getAmount(), targetDeadline.getInformation(), targetDeadline.getMonth(), targetDeadline.getDay(), targetDeadline.getYear());
@@ -1464,13 +1491,38 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         });
     }
 
-    public void clearDeadlineAlarms(DeadlineEventsDAO dao) {
+    @Override
+    public void cancelExpenseAlarmCallback(ExpensesEvent expensesEvent) {
+        cancelExpenseAlarm(expensesEvent);
+    }
+
+    // Called when the user clears all deadlines via the Clear button
+    public void clearDeadlineAlarms() {
         for (Map.Entry<Integer, Intent> element : deadlineIntentMapping.entrySet()) {
             int id = element.getKey();
             Intent intent = element.getValue();
             PendingIntent pIntent = PendingIntent.getBroadcast(MainActivity.this, id, intent, PendingIntent.FLAG_UPDATE_CURRENT);
             alarmManager.cancel(pIntent);
         }
+    }
+
+    // Called when the user clears all CalendarEvents via the Clear button
+    // Query all entries in the ExpenseNotification table, and cancel all alarms using the id
+    public void clearExpenseAlarms() {
+        ExpenseNotificationDAO dao = db.expenseNotificationDAO();
+        List<ExpenseNotification> expenseNotifications = dao.getAllExpenseNotifications();
+        if (expenseNotifications != null && !expenseNotifications.isEmpty()) {
+            for (ExpenseNotification notification : expenseNotifications) {
+                int id = notification.getId();
+                if (expenseNotificationMapping.containsKey(id)) {
+                    Intent intent = expenseNotificationMapping.get(id);
+                    PendingIntent pIntent = PendingIntent.getBroadcast(MainActivity.this, id, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+                    alarmManager.cancel(pIntent);
+                }
+            }
+        }
+        expenseNotificationMapping.clear();
+        dao.clearExpenseNotifications();
     }
 
     // We iterate through the hashmap entry for the current month, and find the sum of all of the expenses and income that the user added for the current month
@@ -1587,7 +1639,7 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
                 MonthlyExpenseDAO monthlyExpenseDAO = db.monthlyExpenseDAO();
 
                 // Loop through the deadline id and intent HashMap, cancel all alarms set by alarmManager
-                clearDeadlineAlarms(deadlineDAO);
+                clearDeadlineAlarms();
                 deadlineIntentMapping.clear();
 
                 // Wipe all data from all 4 tables in the Room Database

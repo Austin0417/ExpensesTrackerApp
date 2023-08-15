@@ -1,13 +1,11 @@
 package com.example.expensestracker.notifications;
 
 import android.annotation.SuppressLint;
-import android.app.NotificationManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.media.RingtoneManager;
-import android.os.Bundle;
 import android.text.Html;
 import android.text.SpannableString;
 import android.util.Log;
@@ -15,23 +13,15 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
-import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
-import com.example.expensestracker.MainActivity;
 import com.example.expensestracker.R;
-import com.example.expensestracker.calendar.CalendarFragment;
-import com.example.expensestracker.calendar.DeadlineEvent;
-import com.example.expensestracker.calendar.EditEvent;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
-import com.google.firebase.FirebaseApp;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.RemoteMessage;
 
 import org.json.JSONException;
 import org.json.JSONObject;
-
-import java.time.LocalDate;
 
 public class AlarmReceiver extends BroadcastReceiver {
     @Override
@@ -64,7 +54,7 @@ public class AlarmReceiver extends BroadcastReceiver {
 
             String notificationText = "Date: " + currentMonth + "/" + currentDay + "/" + currentYear + "<br>Amount: " + amount + "<br>" + information;
             SpannableString formattedText = new SpannableString(Html.fromHtml(notificationText, Html.FROM_HTML_MODE_LEGACY));
-            NotificationCompat.Builder builder = new NotificationCompat.Builder(context, NotificationHelper.CHANNEL_ID)
+            NotificationCompat.Builder builder = new NotificationCompat.Builder(context, NotificationHelper.DEADLINE_CHANNEL_ID)
                     .setContentTitle("Deadline Alert")
                     .setContentText(formattedText)
                     .setStyle(new NotificationCompat.BigTextStyle().bigText(formattedText).setBigContentTitle("Deadline Alert"))

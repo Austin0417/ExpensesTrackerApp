@@ -126,17 +126,17 @@ public class CalendarDialogFragment extends DialogFragment implements AdapterVie
         am_pm_selection = dialogView.findViewById(R.id.am_pm_selection);
         daysBeforeAlert = dialogView.findViewById(R.id.daysBeforeAlert);
 
-        toggleAlertSwitch.setText("Enable Alert Notifications");
+        toggleAlertSwitch.setText("Notifications disabled");
 
         toggleAlertSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 Log.i("SWITCH VIEW", "SWITCH STATUS IS NOW " + toggleAlertSwitch.isChecked());
                 if (toggleAlertSwitch.isChecked()) {
-                    toggleAlertSwitch.setText("Disable Alert Notifications");
+                    toggleAlertSwitch.setText("Notifications enabled");
                     daysBeforeAlert.setVisibility(View.VISIBLE);
                 } else {
-                    toggleAlertSwitch.setText("Enable Alert Notifications");
+                    toggleAlertSwitch.setText("Notifications disabled");
                     daysBeforeAlert.setVisibility(View.GONE);
                 }
             }
